@@ -7,90 +7,90 @@ open Fake
 open Fake.FileUtils
 
 type OS =
-	Mac | Windows
+  Mac | Windows
 
 type Arch =
-	X86 | X64
+  X86 | X64
 
 let removeDir subdir project =
-	let path = Path.Combine(subdir, project)
-	Directory.Delete path, true
+  let path = Path.Combine(subdir, project)
+  Directory.Delete path, true
 
 let removeBuild project = removeDir "build" project
 
 // Targets
 // --------------------------------------------------------
 Target "freetype" <| fun _ ->
-	trace "freetype"
+  trace "freetype"
 
 Target "libffi" <| fun _ ->
-	trace "libffi"
+  trace "libffi"
 
 Target "openssl" <| fun _ ->
-	trace "openssl"
+  trace "openssl"
 
 Target "gettext-runtime" <| fun _ ->
-	trace "gettext-runtime"
+  trace "gettext-runtime"
 
 Target "libxml2" <| fun _ ->
-	trace "libxml2"
+  trace "libxml2"
 
 Target "fontconfig" <| fun _ ->
-	trace "fontconfig"
+  trace "fontconfig"
 
 Target "pixman" <| fun _ ->
-	trace "pixman"
+  trace "pixman"
 
 Target "glib" <| fun _ ->
-	trace "glib"
+  trace "glib"
 
 Target "cairo" <| fun _ ->
-	trace "cairo"
+  trace "cairo"
 
 Target "harfbuzz" <| fun _ ->
-	trace "harfbuzz"
+  trace "harfbuzz"
 
 Target "atk" <| fun _ ->
-	trace "atk"
+  trace "atk"
 
 Target "gdk-pixbuf" <| fun _ ->
-	trace "gdk-pixbuf"
+  trace "gdk-pixbuf"
 
 Target "pango" <| fun _ ->
-	trace "pango"
+  trace "pango"
 
 Target "gtk" <| fun _ ->
-	trace "gtk"
+  trace "gtk"
 
 Target "zlib" <| fun _ ->
-	trace "zlib"
+  trace "zlib"
 
 Target "win-iconv" <| fun _ ->
-	trace "win-iconv"
+  trace "win-iconv"
 
 Target "libpng" <| fun _ ->
-	trace "libpng"
+  trace "libpng"
 
 Target "BuildAll" <| fun _ ->
-	let config = getBuildParamOrDefault "config" "debug"
-	trace("BuildAll " + config)
+  let config = getBuildParamOrDefault "config" "debug"
+  trace("BuildAll " + config)
 
 // Dependencies
 // --------------------------------------------------------
-"zlib"
-	==> "freetype"
-	==> "win-iconv"
-	==> "libffi"
-	==> "openssl"
-	==> "gettext-runtime"
-	==> "libxml2"
-	==> "fontconfig"
-	==> "libpng"
-	==> "pixman"
-	==> "glib"
-	==> "harfbuzz"
-	==> "atk"
-	==> "gdk-pixbuf"
-	==> "pango"
-	==> "gtk"
-	==> "BuildAll"
+"atk" <== ["glib"]
+"cairo" <== ["fontconfig"; "glib"; "pixman"]
+"fontconfig" <== ["freetype"; "libxml2"]
+"gdk-pixbuf" <== ["glib"; "libpng"]
+"gettext-runtime" <== ["win-iconv"]
+"glib" <== ["gettext-runtime"; "libffi"; "zlib"]
+"gtk" <== ["atk"; "gdk-pixbuf"; "pango"]
+"harfbuzz" <== ["freetype"; "glib"]
+"libpng" <== ["zlib"]
+"libxml2" <== ["win-iconv"]
+"openssl" <== ["zlib"]
+"pango" <== ["cairo"; "harfbuzz"]
+"pixman" <== ["libpng"]
+
+"BuildAll" <== ["gtk"]
+
+RunTargetOrDefault "BuildAll"
