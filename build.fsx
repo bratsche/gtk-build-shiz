@@ -1,10 +1,13 @@
 #I "tools/FAKE/tools"
+#I "tools/FSharp.Data/lib/net40"
 #r "FakeLib.dll"
+#r "FSharp.Data"
 
 open System
 open System.IO
 open Fake
 open Fake.FileUtils
+open FSharp.Data
 
 type OS =
   Mac | Windows
@@ -18,8 +21,37 @@ let removeDir subdir project =
 
 let removeBuild project = removeDir "build" project
 
+let urls = Map [("atk", "http://dl.hexchat.net/gtk-win32/src/atk-2.14.0.7z");
+                ("cairo", "http://dl.hexchat.net/gtk-win32/src/cairo-1.14.0.7z");
+                ("fontconfig", "http://dl.hexchat.net/gtk-win32/src/fontconfig-2.8.0.7z");
+                ("freetype", "http://dl.hexchat.net/gtk-win32/src/freetype-2.5.5.7z");
+                ("gdk-pixbuf", "http://dl.hexchat.net/gtk-win32/src/gdk-pixbuf-2.30.8.7z");
+                ("gettext-runtime", "http://dl.hexchat.net/gtk-win32/src/gettext-runtime-0.18.7z");
+                ("glib", "http://dl.hexchat.net/gtk-win32/src/glib-2.42.1.7z");
+                ("gtk", "http://dl.hexchat.net/gtk-win32/src/gtk-2.24.25.7z");
+                ("harfbuzz", "http://dl.hexchat.net/gtk-win32/src/harfbuzz-0.9.37.7z");
+                ("libffi", "http://dl.hexchat.net/gtk-win32/src/libffi-3.0.13.7z");
+                ("libpng", "http://dl.hexchat.net/gtk-win32/src/libpng-1.6.16.7z");
+                ("libxml2", "http://dl.hexchat.net/gtk-win32/src/libxml2-2.9.1.7z");
+                ("openssl", "http://dl.hexchat.net/gtk-win32/src/openssl-1.0.1l.7z");
+                ("pango", "http://dl.hexchat.net/gtk-win32/src/pango-1.36.8.7z");
+                ("pixman", "http://dl.hexchat.net/gtk-win32/src/pixman-0.32.6.7z");
+                ("win-iconv", "http://dl.hexchat.net/gtk-win32/src/win-iconv-0.0.6.7z");
+                ("zlib", "http://dl.hexchat.net/gtk-win32/src/zlib-1.2.8.7z")]
+
 // Targets
 // --------------------------------------------------------
+Target "FetchAll" <| fun _ ->
+  let downloadFile (url:string) =
+    let filename = url.Split('/') |> Array.toList
+                                  |> List.rev
+                                  |> List.head
+    printfn "Filename: %s" filename
+
+  ensureDirectory "cache"
+  //urls |> Map.iter (fun k v -> printfn "%s, %s" k v)
+  urls |> Map.iter (fun k v -> downloadFile(v))
+
 Target "freetype" <| fun _ ->
   trace "freetype"
 
@@ -91,6 +123,6 @@ Target "BuildAll" <| fun _ ->
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
 
-"BuildAll" <== ["gtk"]
+"BuildAll" <== ["FetchAll"; "gtk"]
 
 RunTargetOrDefault "BuildAll"
