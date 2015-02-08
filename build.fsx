@@ -21,6 +21,19 @@ let removeDir subdir project =
 
 let removeBuild project = removeDir "build" project
 
+let sh command args =
+  ProcessHelper.ExecProcessAndReturnMessages (fun info ->
+    info.FileName <- command
+    info.Arguments <- args
+  ) TimeSpan.MaxValue
+
+let extract file =
+  ensureDirectory "builddir"
+
+  sprintf "x %s -obuilddir" file
+  |> sh "C:\Program Files\7-Zip\7z.exe"
+  |> ignore
+
 let urls = Map [("atk", "http://dl.hexchat.net/gtk-win32/src/atk-2.14.0.7z");
                 ("cairo", "http://dl.hexchat.net/gtk-win32/src/cairo-1.14.0.7z");
                 ("fontconfig", "http://dl.hexchat.net/gtk-win32/src/fontconfig-2.8.0.7z");
@@ -46,11 +59,21 @@ Target "FetchAll" <| fun _ ->
     let filename = url.Split('/') |> Array.toList
                                   |> List.rev
                                   |> List.head
-    printfn "Filename: %s" filename
+    let path = Path.Combine("cache", filename)
+
+    match fileExists(path) with
+      | true -> printfn "%s already downloaded, skipping." filename
+      | false -> match Http.Request(url).Body with
+                 | Text text ->
+                   printfn "Received text instead of binary from %s" url
+                 | Binary bytes ->
+                   File.WriteAllBytes(path, bytes)
+                   printfn "Downloaded: %s" filename
+
+    path
 
   ensureDirectory "cache"
-  //urls |> Map.iter (fun k v -> printfn "%s, %s" k v)
-  urls |> Map.iter (fun k v -> downloadFile(v))
+  urls |> Map.iter (fun k v -> downloadFile(v) |> extract)
 
 Target "freetype" <| fun _ ->
   trace "freetype"
