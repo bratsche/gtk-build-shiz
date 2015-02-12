@@ -27,12 +27,28 @@ let sh command args =
     info.Arguments <- args
   ) TimeSpan.MaxValue
 
-let extract file =
+let filenameFromUrl (url:string) =
+    url.Split('/')
+    |> Array.toList
+    |> List.rev
+    |> List.head
+
+let extract (file:string) =
   ensureDirectory "builddir"
 
-  sprintf "x %s -obuilddir" file
-  |> sh "C:\Program Files\7-Zip\7z.exe"
-  |> ignore
+  let path = Path.Combine("builddir", Path.GetFileNameWithoutExtension(file))
+  printfn "About to look for %s" path
+  if not (Directory.Exists(path)) then
+      printfn "extracting %s" file
+
+      sprintf "x %s -obuilddir" file
+      |> sh "C:\Program Files\7-Zip\7z.exe"
+      |> ignore
+
+let from (action: unit -> unit) (path: string) =
+    pushd path
+    action ()
+    popd
 
 let urls = Map [("atk", "http://dl.hexchat.net/gtk-win32/src/atk-2.14.0.7z");
                 ("cairo", "http://dl.hexchat.net/gtk-win32/src/cairo-1.14.0.7z");
@@ -122,6 +138,18 @@ Target "zlib" <| fun _ ->
 
 Target "win-iconv" <| fun _ ->
   trace "win-iconv"
+  let installDir = Path.Combine(pwd(), "install")
+  Path.Combine(pwd(), "builddir", "win-iconv-0.0.6")
+  |> from (fun () ->
+        ensureDirectory installDir
+        sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug" installDir
+        |> sh "cmake"
+        |> ignore
+
+        sh "nmake" "clean" |> ignore
+        sh "nmake" "install" |> ignore
+     )
+  |> ignore
 
 Target "libpng" <| fun _ ->
   trace "libpng"
