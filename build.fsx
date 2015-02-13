@@ -1,3 +1,5 @@
+// Author: Cody Russell <cody@jhu.edu>
+
 #I "tools/FAKE/tools"
 #I "tools/FSharp.Data/lib/net40"
 #r "FakeLib.dll"
@@ -33,6 +35,8 @@ let filenameFromUrl (url:string) =
     |> List.rev
     |> List.head
 
+let installDir = Path.Combine(pwd(), "install")
+
 let extract (file:string) =
   ensureDirectory "builddir"
 
@@ -48,7 +52,7 @@ let extract (file:string) =
 let from (action: unit -> unit) (path: string) =
     pushd path
     action ()
-    popd
+    popd()
 
 let urls = Map [("atk", "http://dl.hexchat.net/gtk-win32/src/atk-2.14.0.7z");
                 ("cairo", "http://dl.hexchat.net/gtk-win32/src/cairo-1.14.0.7z");
@@ -136,12 +140,41 @@ Target "gtk" <| fun _ ->
 Target "zlib" <| fun _ ->
   trace "zlib"
 
+  let vcpath = Path.Combine(pwd(), "slns", "zlib", "contrib", "vstudio", "vc12")
+  let file = Path.Combine(vcpath, "zlibvc.sln")
+  sprintf "%s /p:Platform=%s /p:Configuration=ReleaseWithoutAsm /maxcpucount /nodeReuse:True" file "Win32"
+  |> sh "msbuild"
+  |> ignore
+
+  ensureDirectory installDir
+
+  let sourceDir = Path.Combine(pwd(), "builddir", "zlib-1.2.8")
+  let includeDir = Path.Combine(installDir, "include")
+  ensureDirectory(includeDir)
+  [ Path.Combine(sourceDir, "zlib.h") ] |> Copy includeDir
+
+  Path.Combine(pwd(), "slns", "zlib", "contrib", "vstudio", "vc12")
+  |> from (fun () ->
+        let binDir = Path.Combine(installDir, "bin")
+        ensureDirectory binDir
+
+        [
+            Path.Combine("TestZlibDllRelease", "testzlibdll.exe");
+            Path.Combine("TestZlibDllRelease", "testzlibdll.pdb");
+            Path.Combine("TestZlibReleaseWithoutAsm", "testzlib.exe");
+            Path.Combine("TestZlibReleaseWithoutAsm", "testzlib.pdb");
+            Path.Combine("ZlibDllReleaseWithoutAsm", "zlib1.dll");
+            Path.Combine("ZlibDllReleaseWithoutAsm", "zlib1.map");
+            Path.Combine("ZlibDllReleaseWithoutAsm", "zlib1.pdb")
+        ] |> Copy binDir
+     )
+  |> ignore
+
 Target "win-iconv" <| fun _ ->
   trace "win-iconv"
-  let installDir = Path.Combine(pwd(), "install")
+  ensureDirectory installDir
   Path.Combine(pwd(), "builddir", "win-iconv-0.0.6")
   |> from (fun () ->
-        ensureDirectory installDir
         sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug" installDir
         |> sh "cmake"
         |> ignore
