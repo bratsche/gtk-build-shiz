@@ -38,14 +38,15 @@ let filenameFromUrl (url:string) =
 let installDir = Path.Combine(pwd(), "install")
 
 let extract (file:string) =
-  ensureDirectory "builddir"
+  ensureDirectory "build"
+  ensureDirectory(Path.Combine("build", "win32"))
 
-  let path = Path.Combine("builddir", Path.GetFileNameWithoutExtension(file))
+  let path = Path.Combine("build", "win32", Path.GetFileNameWithoutExtension(file))
   printfn "About to look for %s" path
   if not (Directory.Exists(path)) then
       printfn "extracting %s" file
 
-      sprintf "x %s -obuilddir" file
+      sprintf "x %s -obuild\win32" file
       |> sh "C:\Program Files\7-Zip\7z.exe"
       |> ignore
 
@@ -79,7 +80,7 @@ Target "FetchAll" <| fun _ ->
     let filename = url.Split('/') |> Array.toList
                                   |> List.rev
                                   |> List.head
-    let path = Path.Combine("cache", filename)
+    let path = Path.Combine("src", filename)
 
     match fileExists(path) with
       | true -> printfn "%s already downloaded, skipping." filename
@@ -92,7 +93,7 @@ Target "FetchAll" <| fun _ ->
 
     path
 
-  ensureDirectory "cache"
+  ensureDirectory "src"
   urls |> Map.iter (fun k v -> downloadFile(v) |> extract)
 
 Target "freetype" <| fun _ ->
@@ -148,11 +149,12 @@ Target "zlib" <| fun _ ->
 
   ensureDirectory installDir
 
-  let sourceDir = Path.Combine(pwd(), "builddir", "zlib-1.2.8")
+  let sourceDir = Path.Combine(pwd(), "build", "Win32", "zlib-1.2.8")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
   [ Path.Combine(sourceDir, "zlib.h") ] |> Copy includeDir
 
+  (*
   Path.Combine(pwd(), "slns", "zlib", "contrib", "vstudio", "vc12")
   |> from (fun () ->
         let binDir = Path.Combine(installDir, "bin")
@@ -169,11 +171,12 @@ Target "zlib" <| fun _ ->
         ] |> Copy binDir
      )
   |> ignore
+  *)
 
 Target "win-iconv" <| fun _ ->
   trace "win-iconv"
   ensureDirectory installDir
-  Path.Combine(pwd(), "builddir", "win-iconv-0.0.6")
+  Path.Combine(pwd(), "build", "Win32", "win-iconv-0.0.6")
   |> from (fun () ->
         sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug" installDir
         |> sh "cmake"
