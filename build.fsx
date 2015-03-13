@@ -108,6 +108,22 @@ Target "openssl" <| fun _ ->
 Target "gettext-runtime" <| fun _ ->
   trace "gettext-runtime"
 
+  ensureDirectory installDir
+
+  let iconvHeaders = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "include")
+  let iconvLib = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "lib", "iconv.lib")
+
+  Path.Combine(pwd(), "build", "Win32", "gettext-runtime-0.18")
+  |> from (fun () ->
+        sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug -DICONV_INCLUDE_DIR=%s -DICONV_LIBRARIES=%s" installDir iconvHeaders iconvLib
+        |> sh "cmake"
+        |> ignore
+
+        sh "nmake" "clean" |> ignore
+        sh "nmake" "install" |> ignore
+     )
+  |> ignore
+
 Target "libxml2" <| fun _ ->
   trace "libxml2"
 
