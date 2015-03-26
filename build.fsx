@@ -9,6 +9,7 @@ open System
 open System.IO
 open Fake
 open Fake.FileUtils
+open Fake.FileHelper
 open FSharp.Data
 
 type OS =
@@ -116,12 +117,24 @@ Target "freetype" <| fun _ ->
 
   ensureDirectory installDir
 
-  let sourceDir = Path.Combine(pwd(), "build", "Win32", "freetype-2.5.5")
+  let sourceDir = Path.Combine(pwd(), "build", "win32", "freetype-2.5.5")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
 
-  CopyRecursive sourceDir includeDir
-  |> ignore
+  let includeSrc = Path.Combine(sourceDir, "include")
+  let includeFiles = Directory.GetFiles(Path.Combine(sourceDir, "include"), "*.*", SearchOption.AllDirectories)
+
+  logfn "CopyDir %s -> %s" (Path.Combine(includeDir, "config")) (Path.Combine(includeSrc, "config"))
+
+  CopyFiles includeDir includeFiles
+
+  // XXX Not sure why this doesn't work.
+  //CopyDir (Path.Combine(includeDir, "config")) (Path.Combine(includeSrc, "config"))
+
+  ensureDirectory (Path.Combine(includeDir, "config"))
+  CopyFiles (Path.Combine(includeDir, "config")) (Directory.GetFiles(Path.Combine(includeSrc, "config"), "*.*", SearchOption.AllDirectories))
+
+  // </XXX>
 
   let libDir = Path.Combine(installDir, "lib")
   [ Path.Combine(sourceDir, "objs", "vc2013", "Win32", "freetype.lib")]
