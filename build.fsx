@@ -41,6 +41,9 @@ let extract (file:string) =
   ensureDirectory "build"
   ensureDirectory(Path.Combine("build", "win32"))
 
+  let stacks = Path.Combine("build", "Win32")
+  Path.Combine("patches/stack.props") |> CopyFile stacks
+
   let path = Path.Combine("build", "win32", Path.GetFileNameWithoutExtension(file))
   printfn "About to look for %s" path
   if not (Directory.Exists(path)) then
@@ -98,6 +101,31 @@ Target "FetchAll" <| fun _ ->
 
 Target "freetype" <| fun _ ->
   trace "freetype"
+
+  let srcvcpath = Path.Combine(pwd(), "github", "gtk-win32", "freetype", "builds", "windows", "vc2013")
+  let vcpath = Path.Combine(pwd(), "build", "Win32", "freetype-2.5.5", "builds", "windows", "vc2013")
+
+  ensureDirectory vcpath
+  CopyRecursive srcvcpath vcpath true
+  |> Log "Copying files: "
+
+  let file = Path.Combine(vcpath, "freetype.vcxproj")
+  sprintf "%s /p:Platform=%s /p:Configuration=Release /maxcpucount /nodeReuse:True" file "Win32"
+  |> sh "msbuild"
+  |> ignore
+
+  ensureDirectory installDir
+
+  let sourceDir = Path.Combine(pwd(), "build", "Win32", "freetype-2.5.5")
+  let includeDir = Path.Combine(installDir, "include")
+  ensureDirectory(includeDir)
+
+  CopyRecursive sourceDir includeDir
+  |> ignore
+
+  let libDir = Path.Combine(installDir, "lib")
+  [ Path.Combine(sourceDir, "objs", "vc2013", "Win32", "freetype.lib")]
+  |> Copy libDir
 
 Target "libffi" <| fun _ ->
   trace "libffi"
