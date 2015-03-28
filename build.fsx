@@ -66,10 +66,13 @@ Target "freetype" <| fun _ ->
   CopyRecursive srcvcpath vcpath true
   |> Log "Copying files: "
 
-  let file = Path.Combine(vcpath, "freetype.vcxproj")
-  sprintf "%s /p:Platform=%s /p:Configuration=Release /maxcpucount /nodeReuse:True" file "Win32"
-  |> sh "msbuild"
-  |> ignore
+  Path.Combine(vcpath, "freetype.vcxproj") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  ) |> ignore
 
   let sourceDir = Path.Combine(buildDir, "freetype-2.5.5")
   let includeDir = Path.Combine(installDir, "include")
@@ -107,10 +110,14 @@ Target "libxml2" <| fun _ ->
   Path.Combine("patches", "libxml2", "config.h") |> CopyFile checkoutDir
   Path.Combine("patches", "libxml2", "xmlversion.h") |> CopyFile (Path.Combine(checkoutDir, "include", "libxml"))
 
-  let file = Path.Combine(checkoutDir, "win32", "vc12", "libxml2.sln")
-  sprintf "%s /p:Platform=%s /p:Configuration=Release /maxcpucount /nodeReuse:True" file "Win32"
-  |> sh "msbuild"
-  |> ignore
+  Path.Combine(checkoutDir, "win32", "vc12", "libxml2.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  ) |> ignore
+
 
   ["libxml2.dll"; "libxml2.pdb"; "runsuite.exe"; "runsuite.pdb"]
   |> List.map (fun x -> Path.Combine(checkoutDir, "win32", "vc12", "Release", x))
@@ -124,6 +131,26 @@ Target "libxml2" <| fun _ ->
 Target "libffi" <| fun _ ->
   trace "libffi"
   "libffi-3.0.13.7z" |> extract
+
+  CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
+
+  Path.Combine(buildDir, "libffi-3.0.13")
+  |> from (fun () ->
+    "-p1 -i libffi-msvc-complex.patch" |> sh "C:\\msys32\\usr\\bin\\patch.exe" |> ignore
+    "-p1 -i libffi-win64-jmp.patch" |> sh "C:\\msys32\\usr\\bin\\patch.exe" |> ignore
+  )
+
+  Path.Combine(buildDir, "libffi-3.0.13", "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  ) |> ignore
+
+  [Path.Combine(buildDir, "libffi-3.0.13", "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir, "libffi-3.0.13", "src", "x86", "ffitarget.h")]
+  |> CopyFiles (Path.Combine(installDir, "include"))
 
 Target "openssl" <| fun _ ->
   trace "openssl"
