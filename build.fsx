@@ -32,13 +32,11 @@ let installDir = "C:\\gtk-build\\gtk"
 let buildDir = "C:\\gtk-build\\build\\Win32"
 
 let extract (path:string) =
-  printfn " XXX %s" path
   let file = Path.Combine("src", path)
 
   Path.Combine("patches", "stack.props") |> CopyFile buildDir
 
   let path = Path.Combine(buildDir, Path.GetFileNameWithoutExtension(file))
-  printfn "About to look for %s" path
   if not (Directory.Exists(path)) then
       printfn "extracting %s" file
 
@@ -86,10 +84,8 @@ Target "freetype" <| fun _ ->
 
   // XXX Not sure why this doesn't work.
   //CopyDir (Path.Combine(includeDir, "config")) (Path.Combine(includeSrc, "config"))
-
   ensureDirectory (Path.Combine(includeDir, "config"))
   CopyFiles (Path.Combine(includeDir, "config")) (Directory.GetFiles(Path.Combine(includeSrc, "config"), "*.*", SearchOption.AllDirectories))
-
   // </XXX>
 
   let libDir = Path.Combine(installDir, "lib")
