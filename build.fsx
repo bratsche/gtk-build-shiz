@@ -28,8 +28,8 @@ let filenameFromUrl (url:string) =
     |> List.rev
     |> List.head
 
-let installDir = Path.Combine("..", "..", "gtk")
-let buildDir = Path.Combine("..", "..", "build", "Win32")
+let installDir = "C:\\gtk-build\\gtk"
+let buildDir = "C:\\gtk-build\\build\\Win32"
 
 let extract (path:string) =
   printfn " XXX %s" path
