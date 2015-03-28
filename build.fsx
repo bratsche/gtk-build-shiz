@@ -28,7 +28,7 @@ let filenameFromUrl (url:string) =
     |> List.rev
     |> List.head
 
-let installDir = "C:\\gtk-build\\gtk"
+let installDir = "C:\\gtk-build\\gtk\\Win32"
 let buildDir = "C:\\gtk-build\\build\\Win32"
 
 let extract (path:string) =

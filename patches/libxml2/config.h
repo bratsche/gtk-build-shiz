@@ -32,6 +32,9 @@
 #include <wsockcompat.h>
 #endif
 
+#define GETHOSTBYNAME_ARG_CAST
+#define SEND_ARG2_CAST
+
 /*
  * Windows platforms may define except 
  */
