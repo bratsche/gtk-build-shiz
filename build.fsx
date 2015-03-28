@@ -10,19 +10,11 @@ open System.IO
 open Fake
 open Fake.FileUtils
 open Fake.FileHelper
+open Fake.Git
 open FSharp.Data
 
-type OS =
-  Mac | Windows
-
-type Arch =
-  X86 | X64
-
-let removeDir subdir project =
-  let path = Path.Combine(subdir, project)
-  Directory.Delete path, true
-
-let removeBuild project = removeDir "build" project
+type OS = Mac | Windows
+type Arch = X86 | X64
 
 let sh command args =
   ProcessHelper.ExecProcessAndReturnMessages (fun info ->
@@ -36,21 +28,21 @@ let filenameFromUrl (url:string) =
     |> List.rev
     |> List.head
 
-let installDir = Path.Combine(pwd(), "install")
+let installDir = Path.Combine("..", "..", "gtk")
+let buildDir = Path.Combine("..", "..", "build", "Win32")
 
-let extract (file:string) =
-  ensureDirectory "build"
-  ensureDirectory(Path.Combine("build", "win32"))
+let extract (path:string) =
+  printfn " XXX %s" path
+  let file = Path.Combine("src", path)
 
-  let stacks = Path.Combine("build", "Win32")
-  Path.Combine("patches/stack.props") |> CopyFile stacks
+  Path.Combine("patches", "stack.props") |> CopyFile buildDir
 
-  let path = Path.Combine("build", "win32", Path.GetFileNameWithoutExtension(file))
+  let path = Path.Combine(buildDir, Path.GetFileNameWithoutExtension(file))
   printfn "About to look for %s" path
   if not (Directory.Exists(path)) then
       printfn "extracting %s" file
 
-      sprintf "x %s -obuild\win32" file
+      sprintf "x %s -o..\\..\\build\\win32" file
       |> sh "C:\Program Files\7-Zip\7z.exe"
       |> ignore
 
@@ -59,52 +51,18 @@ let from (action: unit -> unit) (path: string) =
     action ()
     popd()
 
-let urls = Map [("atk", "http://dl.hexchat.net/gtk-win32/src/atk-2.14.0.7z");
-                ("cairo", "http://dl.hexchat.net/gtk-win32/src/cairo-1.14.0.7z");
-                ("fontconfig", "http://dl.hexchat.net/gtk-win32/src/fontconfig-2.8.0.7z");
-                ("freetype", "http://dl.hexchat.net/gtk-win32/src/freetype-2.5.5.7z");
-                ("gdk-pixbuf", "http://dl.hexchat.net/gtk-win32/src/gdk-pixbuf-2.30.8.7z");
-                ("gettext-runtime", "http://dl.hexchat.net/gtk-win32/src/gettext-runtime-0.18.7z");
-                ("glib", "http://dl.hexchat.net/gtk-win32/src/glib-2.42.1.7z");
-                ("gtk", "http://dl.hexchat.net/gtk-win32/src/gtk-2.24.25.7z");
-                ("harfbuzz", "http://dl.hexchat.net/gtk-win32/src/harfbuzz-0.9.37.7z");
-                ("libffi", "http://dl.hexchat.net/gtk-win32/src/libffi-3.0.13.7z");
-                ("libpng", "http://dl.hexchat.net/gtk-win32/src/libpng-1.6.16.7z");
-                ("libxml2", "http://dl.hexchat.net/gtk-win32/src/libxml2-2.9.1.7z");
-                ("openssl", "http://dl.hexchat.net/gtk-win32/src/openssl-1.0.1l.7z");
-                ("pango", "http://dl.hexchat.net/gtk-win32/src/pango-1.36.8.7z");
-                ("pixman", "http://dl.hexchat.net/gtk-win32/src/pixman-0.32.6.7z");
-                ("win-iconv", "http://dl.hexchat.net/gtk-win32/src/win-iconv-0.0.6.7z");
-                ("zlib", "http://dl.hexchat.net/gtk-win32/src/zlib-1.2.8.7z")]
-
 // Targets
 // --------------------------------------------------------
-Target "FetchAll" <| fun _ ->
-  let downloadFile (url:string) =
-    let filename = url.Split('/') |> Array.toList
-                                  |> List.rev
-                                  |> List.head
-    let path = Path.Combine("src", filename)
-
-    match fileExists(path) with
-      | true -> printfn "%s already downloaded, skipping." filename
-      | false -> match Http.Request(url).Body with
-                 | Text text ->
-                   printfn "Received text instead of binary from %s" url
-                 | Binary bytes ->
-                   File.WriteAllBytes(path, bytes)
-                   printfn "Downloaded: %s" filename
-
-    path
-
-  ensureDirectory "src"
-  urls |> Map.iter (fun k v -> downloadFile(v) |> extract)
+Target "prep" <| fun _ ->
+    ensureDirectory buildDir
+    ensureDirectory installDir
 
 Target "freetype" <| fun _ ->
   trace "freetype"
+  "freetype-2.5.5.7z" |> extract
 
-  let srcvcpath = Path.Combine(pwd(), "github", "gtk-win32", "freetype", "builds", "windows", "vc2013")
-  let vcpath = Path.Combine(pwd(), "build", "Win32", "freetype-2.5.5", "builds", "windows", "vc2013")
+  let srcvcpath = Path.Combine("slns", "freetype", "builds", "windows", "vc2013")
+  let vcpath = Path.Combine(buildDir, "freetype-2.5.5", "builds", "windows", "vc2013")
 
   ensureDirectory vcpath
   CopyRecursive srcvcpath vcpath true
@@ -117,7 +75,7 @@ Target "freetype" <| fun _ ->
 
   ensureDirectory installDir
 
-  let sourceDir = Path.Combine(pwd(), "build", "win32", "freetype-2.5.5")
+  let sourceDir = Path.Combine(buildDir, "freetype-2.5.5")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
 
@@ -140,21 +98,48 @@ Target "freetype" <| fun _ ->
   [ Path.Combine(sourceDir, "objs", "vc2013", "Win32", "freetype.lib")]
   |> Copy libDir
 
+Target "libxml2" <| fun _ ->
+  trace "libxml2"
+
+  let checkoutDir = Path.Combine(buildDir, "libxml2")
+
+  if not (Directory.Exists(checkoutDir)) then
+      Git.Repository.clone (buildDir) "https://github.com/bratsche/libxml2.git" "libxml2"
+      Git.Reset.hard (Path.Combine(pwd(), "build", "win32", "libxml2")) "726f67e2f140f8d936dfe993bf9ded3180d750d2" |> ignore
+
+  Path.Combine(checkoutDir, "win32", "vc12") |> ensureDirectory
+
+  (Directory.GetFiles(Path.Combine("slns", "libxml2", "win32", "vc12"), "*.*", SearchOption.AllDirectories))
+  |> CopyFiles (Path.Combine(checkoutDir, "win32", "vc12"))
+
+  // config.h.in
+  // include/libxml/xmlversion.h.in
+
+  let file = Path.Combine(checkoutDir, "win32", "vc12", "libxml2.sln")
+  sprintf "%s /p:Platform=%s /p:Configuration=Release /maxcpucount /nodeReuse:True" file "Win32"
+  |> sh "msbuild"
+  |> ignore
+
+  ensureDirectory installDir
+
 Target "libffi" <| fun _ ->
   trace "libffi"
+  "libffi-3.0.13.7z" |> extract
 
 Target "openssl" <| fun _ ->
   trace "openssl"
+  "openssl-1.0.1l.7z" |> extract
 
 Target "gettext-runtime" <| fun _ ->
   trace "gettext-runtime"
+  "gettext-runtime-0.18.7z" |> extract
 
   ensureDirectory installDir
 
   let iconvHeaders = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "include")
   let iconvLib = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "lib", "iconv.lib")
 
-  Path.Combine(pwd(), "build", "Win32", "gettext-runtime-0.18")
+  Path.Combine(buildDir, "gettext-runtime-0.18")
   |> from (fun () ->
         sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug -DICONV_INCLUDE_DIR=%s -DICONV_LIBRARIES=%s" installDir iconvHeaders iconvLib
         |> sh "cmake"
@@ -165,40 +150,47 @@ Target "gettext-runtime" <| fun _ ->
      )
   |> ignore
 
-Target "libxml2" <| fun _ ->
-  trace "libxml2"
-
 Target "fontconfig" <| fun _ ->
   trace "fontconfig"
+  "fontconfig-2.8.0.7z" |> extract
 
 Target "pixman" <| fun _ ->
   trace "pixman"
+  "pixman-0.32.6.7z" |> extract
 
 Target "glib" <| fun _ ->
   trace "glib"
+  "glib-2.42.1.7z" |> extract
 
 Target "cairo" <| fun _ ->
   trace "cairo"
+  "cairo-1.14.0.7z" |> extract
 
 Target "harfbuzz" <| fun _ ->
   trace "harfbuzz"
+  "harfbuzz-0.9.37.7z" |> extract
 
 Target "atk" <| fun _ ->
   trace "atk"
+  "atk-2.14.0.7z" |> extract
 
 Target "gdk-pixbuf" <| fun _ ->
   trace "gdk-pixbuf"
+  "gdk-pixbuf-2.30.8.7z" |> extract
 
 Target "pango" <| fun _ ->
   trace "pango"
+  "pango-1.36.8.7z" |> extract
 
 Target "gtk" <| fun _ ->
   trace "gtk"
+  "gtk-2.24.25.7z" |> extract
 
 Target "zlib" <| fun _ ->
   trace "zlib"
+  "zlib-1.2.8.7z" |> extract
 
-  let vcpath = Path.Combine(pwd(), "slns", "zlib", "contrib", "vstudio", "vc12")
+  let vcpath = Path.Combine("slns", "zlib", "contrib", "vstudio", "vc12")
   let file = Path.Combine(vcpath, "zlibvc.sln")
   sprintf "%s /p:Platform=%s /p:Configuration=ReleaseWithoutAsm /maxcpucount /nodeReuse:True" file "Win32"
   |> sh "msbuild"
@@ -206,7 +198,7 @@ Target "zlib" <| fun _ ->
 
   ensureDirectory installDir
 
-  let sourceDir = Path.Combine(pwd(), "build", "Win32", "zlib-1.2.8")
+  let sourceDir = Path.Combine(buildDir, "zlib-1.2.8")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
   [ Path.Combine(sourceDir, "zlib.h") ] |> Copy includeDir
@@ -233,7 +225,8 @@ Target "zlib" <| fun _ ->
 Target "win-iconv" <| fun _ ->
   trace "win-iconv"
   ensureDirectory installDir
-  Path.Combine(pwd(), "build", "Win32", "win-iconv-0.0.6")
+  "win-iconv-0.0.6.7z" |> extract
+  Path.Combine(buildDir, "win-iconv-0.0.6")
   |> from (fun () ->
         sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug" installDir
         |> sh "cmake"
@@ -246,6 +239,7 @@ Target "win-iconv" <| fun _ ->
 
 Target "libpng" <| fun _ ->
   trace "libpng"
+  "libpng-1.6.16.7z" |> extract
 
 Target "BuildAll" <| fun _ ->
   let config = getBuildParamOrDefault "config" "debug"
@@ -267,6 +261,6 @@ Target "BuildAll" <| fun _ ->
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
 
-"BuildAll" <== ["FetchAll"; "gtk"]
+"BuildAll" <== ["prep"; "gtk"]
 
 RunTargetOrDefault "BuildAll"
