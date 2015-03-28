@@ -73,8 +73,6 @@ Target "freetype" <| fun _ ->
   |> sh "msbuild"
   |> ignore
 
-  ensureDirectory installDir
-
   let sourceDir = Path.Combine(buildDir, "freetype-2.5.5")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
@@ -120,8 +118,6 @@ Target "libxml2" <| fun _ ->
   |> sh "msbuild"
   |> ignore
 
-  ensureDirectory installDir
-
 Target "libffi" <| fun _ ->
   trace "libffi"
   "libffi-3.0.13.7z" |> extract
@@ -133,8 +129,6 @@ Target "openssl" <| fun _ ->
 Target "gettext-runtime" <| fun _ ->
   trace "gettext-runtime"
   "gettext-runtime-0.18.7z" |> extract
-
-  ensureDirectory installDir
 
   let iconvHeaders = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "include")
   let iconvLib = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "lib", "iconv.lib")
@@ -196,8 +190,6 @@ Target "zlib" <| fun _ ->
   |> sh "msbuild"
   |> ignore
 
-  ensureDirectory installDir
-
   let sourceDir = Path.Combine(buildDir, "zlib-1.2.8")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
@@ -224,7 +216,6 @@ Target "zlib" <| fun _ ->
 
 Target "win-iconv" <| fun _ ->
   trace "win-iconv"
-  ensureDirectory installDir
   "win-iconv-0.0.6.7z" |> extract
   Path.Combine(buildDir, "win-iconv-0.0.6")
   |> from (fun () ->
@@ -260,7 +251,6 @@ Target "BuildAll" <| fun _ ->
 "openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-
 "BuildAll" <== ["prep"; "gtk"]
 
 RunTargetOrDefault "BuildAll"
