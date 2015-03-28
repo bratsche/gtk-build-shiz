@@ -78,8 +78,6 @@ Target "freetype" <| fun _ ->
   let includeSrc = Path.Combine(sourceDir, "include")
   let includeFiles = Directory.GetFiles(Path.Combine(sourceDir, "include"), "*.*", SearchOption.AllDirectories)
 
-  logfn "CopyDir %s -> %s" (Path.Combine(includeDir, "config")) (Path.Combine(includeSrc, "config"))
-
   CopyFiles includeDir includeFiles
 
   // XXX Not sure why this doesn't work.
@@ -106,8 +104,8 @@ Target "libxml2" <| fun _ ->
   (Directory.GetFiles(Path.Combine("slns", "libxml2", "win32", "vc12"), "*.*", SearchOption.AllDirectories))
   |> CopyFiles (Path.Combine(checkoutDir, "win32", "vc12"))
 
-  // config.h.in
-  // include/libxml/xmlversion.h.in
+  Path.Combine("patches", "libxml2", "config.h") |> CopyFile checkoutDir
+  Path.Combine("patches", "libxml2", "xmlversion.h") |> CopyFile (Path.Combine(checkoutDir, "include", "libxml"))
 
   let file = Path.Combine(checkoutDir, "win32", "vc12", "libxml2.sln")
   sprintf "%s /p:Platform=%s /p:Configuration=Release /maxcpucount /nodeReuse:True" file "Win32"
