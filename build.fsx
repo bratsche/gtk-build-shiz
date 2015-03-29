@@ -1,5 +1,3 @@
-// Author: Cody Russell <cody@jhu.edu>
-
 #I "tools/FAKE/tools"
 #I "tools/FSharp.Data/lib/net40"
 #r "FakeLib.dll"
@@ -13,14 +11,22 @@ open Fake.FileHelper
 open Fake.Git
 open FSharp.Data
 
-type OS = Mac | Windows
-type Arch = X86 | X64
+// Some directories
+// ------------------------------------------------------
+let installDir = "C:\\gtk-build\\gtk\\Win32"
+let buildDir = "C:\\gtk-build\\build\\Win32"
+let patchDir = "C:\\gtk-build\\github\\fab\\patches"
 
+// Some utility functions
+// ------------------------------------------------------
 let sh command args =
-  ProcessHelper.ExecProcessAndReturnMessages (fun info ->
+  let exitCode = ProcessHelper.ExecProcess (fun info ->
     info.FileName <- command
-    info.Arguments <- args
-  ) TimeSpan.MaxValue
+    info.Arguments <- args) TimeSpan.MaxValue
+
+  if exitCode <> 0 then
+    let errorMsg = sprintf "Executing %s failed with exit code %d." command exitCode
+    raise (BuildException(errorMsg, []))
 
 let filenameFromUrl (url:string) =
     url.Split('/')
@@ -28,15 +34,14 @@ let filenameFromUrl (url:string) =
     |> List.rev
     |> List.head
 
-let installDir = "C:\\gtk-build\\gtk\\Win32"
-let buildDir = "C:\\gtk-build\\build\\Win32"
-
 let extract (path:string) =
   let file = Path.Combine("src", path)
 
   Path.Combine("patches", "stack.props") |> CopyFile buildDir
 
   let path = Path.Combine(buildDir, Path.GetFileNameWithoutExtension(file))
+  DeleteDir path
+
   if not (Directory.Exists(path)) then
       printfn "extracting %s" file
 
@@ -48,6 +53,11 @@ let from (action: unit -> unit) (path: string) =
     pushd path
     action ()
     popd()
+
+let patch filename =
+  sprintf "-p1 -i %s" (Path.Combine(patchDir, filename))
+  |> sh "C:\\msys32\\usr\\bin\\patch.exe"
+
 
 // Targets
 // --------------------------------------------------------
@@ -135,12 +145,6 @@ Target "libffi" <| fun _ ->
   CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
   CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
 
-  Path.Combine(buildDir, "libffi-3.0.13")
-  |> from (fun () ->
-    "-p1 -i libffi-msvc-complex.patch" |> sh "C:\\msys32\\usr\\bin\\patch.exe" |> ignore
-    "-p1 -i libffi-win64-jmp.patch" |> sh "C:\\msys32\\usr\\bin\\patch.exe" |> ignore
-  )
-
   Path.Combine(buildDir, "libffi-3.0.13", "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -165,11 +169,13 @@ Target "gettext-runtime" <| fun _ ->
 
   Path.Combine(buildDir, "gettext-runtime-0.18")
   |> from (fun () ->
-        sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug -DICONV_INCLUDE_DIR=%s -DICONV_LIBRARIES=%s" installDir iconvHeaders iconvLib
+        patch "gettext-runtime\\gettext-runtime.patch"
+        "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=..\..\..\gtk\Win32\" -DCMAKE_BUILD_TYPE=Debug"
         |> sh "cmake"
         |> ignore
 
         sh "nmake" "clean" |> ignore
+        sh "nmake" |> ignore
         sh "nmake" "install" |> ignore
      )
   |> ignore
@@ -185,6 +191,20 @@ Target "pixman" <| fun _ ->
 Target "glib" <| fun _ ->
   trace "glib"
   "glib-2.42.1.7z" |> extract
+
+  Path.Combine(buildDir, "glib-2.42.1")
+  |> from (fun () ->
+    patch "glib\\glib-if_nametoindex.patch"
+    patch "glib\\glib-package-installation-directory.patch"
+  )
+
+  Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12", "glib.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  ) |> ignore
 
 Target "cairo" <| fun _ ->
   trace "cairo"
@@ -214,11 +234,15 @@ Target "zlib" <| fun _ ->
   trace "zlib"
   "zlib-1.2.8.7z" |> extract
 
-  let vcpath = Path.Combine("slns", "zlib", "contrib", "vstudio", "vc12")
-  let file = Path.Combine(vcpath, "zlibvc.sln")
-  sprintf "%s /p:Platform=%s /p:Configuration=ReleaseWithoutAsm /maxcpucount /nodeReuse:True" file "Win32"
-  |> sh "msbuild"
-  |> ignore
+  CopyDir (Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12")) (Path.Combine("slns", "zlib", "contrib", "vstudio", "vc12")) (fun _ -> true)
+
+  Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12", "zlibvc.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "ReleaseWithoutAsm"
+                      ]
+    }
+  ) |> ignore
 
   let sourceDir = Path.Combine(buildDir, "zlib-1.2.8")
   let includeDir = Path.Combine(installDir, "include")
@@ -273,7 +297,7 @@ Target "BuildAll" <| fun _ ->
 "fontconfig" <== ["freetype"; "libxml2"]
 "gdk-pixbuf" <== ["glib"; "libpng"]
 "gettext-runtime" <== ["win-iconv"]
-"glib" <== ["gettext-runtime"; "libffi"; "zlib"]
+"glib" <== ["libffi"; "gettext-runtime"; "zlib"]
 "gtk" <== ["atk"; "gdk-pixbuf"; "pango"]
 "harfbuzz" <== ["freetype"; "glib"]
 "libpng" <== ["zlib"]
