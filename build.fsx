@@ -15,6 +15,8 @@ open FSharp.Data
 // ------------------------------------------------------
 let installDir = "C:\\gtk-build\\gtk\\Win32"
 let buildDir = "C:\\gtk-build\\build\\Win32"
+let binDir = Path.Combine(installDir, "bin")
+let libDir = Path.Combine(installDir, "lib")
 let patchDir = "C:\\gtk-build\\github\\fab\\patches"
 
 // Some utility functions
@@ -99,7 +101,6 @@ Target "freetype" <| fun _ ->
   CopyFiles (Path.Combine(includeDir, "config")) (Directory.GetFiles(Path.Combine(includeSrc, "config"), "*.*", SearchOption.AllDirectories))
   // </XXX>
 
-  let libDir = Path.Combine(installDir, "lib")
   [ Path.Combine(sourceDir, "objs", "vc2013", "Win32", "freetype.lib")]
   |> Copy libDir
 
@@ -156,6 +157,9 @@ Target "libffi" <| fun _ ->
   [Path.Combine(buildDir, "libffi-3.0.13", "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir, "libffi-3.0.13", "src", "x86", "ffitarget.h")]
   |> CopyFiles (Path.Combine(installDir, "include"))
 
+  Path.Combine(buildDir, "libffi-rel", "lib", "libffi.lib")
+  |> CopyFile (Path.Combine(installDir, "lib"))
+
 Target "openssl" <| fun _ ->
   trace "openssl"
   "openssl-1.0.1l.7z" |> extract
@@ -198,6 +202,9 @@ Target "glib" <| fun _ ->
     patch "glib\\glib-package-installation-directory.patch"
   )
 
+  Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-build-defines.props")
+  |> CopyFile (Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12"))
+
   Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12", "glib.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -234,9 +241,10 @@ Target "zlib" <| fun _ ->
   trace "zlib"
   "zlib-1.2.8.7z" |> extract
 
-  CopyDir (Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12")) (Path.Combine("slns", "zlib", "contrib", "vstudio", "vc12")) (fun _ -> true)
+  let slnDir = Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12")
+  CopyDir (slnDir) (Path.Combine("slns", "zlib", "contrib", "vstudio", "vc12")) (fun _ -> true)
 
-  Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12", "zlibvc.sln") |> MSBuildHelper.build (fun parameters ->
+  Path.Combine(slnDir, "zlibvc.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
                                      "Configuration", "ReleaseWithoutAsm"
@@ -247,26 +255,13 @@ Target "zlib" <| fun _ ->
   let sourceDir = Path.Combine(buildDir, "zlib-1.2.8")
   let includeDir = Path.Combine(installDir, "include")
   ensureDirectory(includeDir)
-  [ Path.Combine(sourceDir, "zlib.h") ] |> Copy includeDir
+  [ Path.Combine(sourceDir, "zlib.h"); Path.Combine(sourceDir, "zconf.h") ] |> Copy includeDir
 
-  (*
-  Path.Combine(pwd(), "slns", "zlib", "contrib", "vstudio", "vc12")
-  |> from (fun () ->
-        let binDir = Path.Combine(installDir, "bin")
-        ensureDirectory binDir
+  [Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.dll"); Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.map"); Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.pdb")]
+  |> Copy binDir
 
-        [
-            Path.Combine("TestZlibDllRelease", "testzlibdll.exe");
-            Path.Combine("TestZlibDllRelease", "testzlibdll.pdb");
-            Path.Combine("TestZlibReleaseWithoutAsm", "testzlib.exe");
-            Path.Combine("TestZlibReleaseWithoutAsm", "testzlib.pdb");
-            Path.Combine("ZlibDllReleaseWithoutAsm", "zlib1.dll");
-            Path.Combine("ZlibDllReleaseWithoutAsm", "zlib1.map");
-            Path.Combine("ZlibDllReleaseWithoutAsm", "zlib1.pdb")
-        ] |> Copy binDir
-     )
-  |> ignore
-  *)
+  [Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.lib"); Path.Combine(slnDir, "x86", "ZlibStatReleaseWithoutAsm", "zlibstat.lib")]
+  |> Copy libDir
 
 Target "win-iconv" <| fun _ ->
   trace "win-iconv"
