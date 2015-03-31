@@ -51,6 +51,13 @@ let extract (path:string) =
       |> sh "C:\Program Files\7-Zip\7z.exe"
       |> ignore
 
+let install (path) =
+    let inDi = new DirectoryInfo(Path.Combine(buildDir, path))
+    let outDi = new DirectoryInfo(installDir)
+
+    printfn "Installing from %s to %s..." inDi.FullName outDi.FullName
+    copyRecursive inDi outDi true
+
 let from (action: unit -> unit) (path: string) =
     pushd path
     action ()
@@ -202,8 +209,8 @@ Target "glib" <| fun _ ->
     patch "glib\\glib-package-installation-directory.patch"
   )
 
-  Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-build-defines.props")
-  |> CopyFile (Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12"))
+  [Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-build-defines.props"); Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-install.props")]
+  |> CopyFiles (Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12"))
 
   Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12", "glib.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
@@ -212,6 +219,8 @@ Target "glib" <| fun _ ->
                       ]
     }
   ) |> ignore
+
+  install "glib-rel" |> ignore
 
 Target "cairo" <| fun _ ->
   trace "cairo"
@@ -300,6 +309,6 @@ Target "BuildAll" <| fun _ ->
 "openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "gtk"]
+"BuildAll" <== ["prep"; "glib"]
 
 RunTargetOrDefault "BuildAll"
