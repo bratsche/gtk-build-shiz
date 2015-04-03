@@ -75,7 +75,6 @@ Target "prep" <| fun _ ->
     ensureDirectory installDir
 
 Target "freetype" <| fun _ ->
-  trace "freetype"
   "freetype-2.5.5.7z" |> extract
 
   let srcvcpath = Path.Combine("slns", "freetype", "builds", "windows", "vc2013")
@@ -112,8 +111,6 @@ Target "freetype" <| fun _ ->
   |> Copy libDir
 
 Target "libxml2" <| fun _ ->
-  trace "libxml2"
-
   let checkoutDir = Path.Combine(buildDir, "libxml2")
 
   if not (Directory.Exists(checkoutDir)) then
@@ -147,7 +144,6 @@ Target "libxml2" <| fun _ ->
   |> CopyFiles (Path.Combine(installDir, "include", "libxml"))
 
 Target "libffi" <| fun _ ->
-  trace "libffi"
   "libffi-3.0.13.7z" |> extract
 
   CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
@@ -172,7 +168,6 @@ Target "openssl" <| fun _ ->
   "openssl-1.0.1l.7z" |> extract
 
 Target "gettext-runtime" <| fun _ ->
-  trace "gettext-runtime"
   "gettext-runtime-0.18.7z" |> extract
 
   let iconvHeaders = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "include")
@@ -200,7 +195,6 @@ Target "pixman" <| fun _ ->
   "pixman-0.32.6.7z" |> extract
 
 Target "glib" <| fun _ ->
-  trace "glib"
   "glib-2.42.1.7z" |> extract
 
   Path.Combine(buildDir, "glib-2.42.1")
@@ -228,7 +222,6 @@ Target "cairo" <| fun _ ->
   "cairo-1.14.0.7z" |> extract
 
 Target "harfbuzz" <| fun _ ->
-  trace "harfbuzz"
   "harfbuzz-0.9.37.7z" |> extract
   CopyDir (Path.Combine(buildDir, "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
   [Path.Combine("slns", "harfbuzz", "src", "hb-gobject-enums.h"); Path.Combine("slns", "harfbuzz", "src", "rllist.txt")]
@@ -251,7 +244,6 @@ Target "harfbuzz" <| fun _ ->
 
 
 Target "atk" <| fun _ ->
-  trace "atk"
   "atk-2.14.0.7z" |> extract
 
   Directory.GetFiles(Path.Combine("slns", "atk", "build", "win32", "vs12"), "*.*")
@@ -269,7 +261,6 @@ Target "atk" <| fun _ ->
   install "atk-2.14.0-rel" |> ignore
 
 Target "gdk-pixbuf" <| fun _ ->
-  trace "gdk-pixbuf"
   "gdk-pixbuf-2.30.8.7z" |> extract
 
   let slnDir = Path.Combine(buildDir, "gdk-pixbuf-2.30.8", "build", "win32", "vc12")
@@ -293,7 +284,6 @@ Target "gtk" <| fun _ ->
   "gtk-2.24.25.7z" |> extract
 
 Target "zlib" <| fun _ ->
-  trace "zlib"
   "zlib-1.2.8.7z" |> extract
 
   let slnDir = Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12")
@@ -319,7 +309,6 @@ Target "zlib" <| fun _ ->
   |> Copy libDir
 
 Target "win-iconv" <| fun _ ->
-  trace "win-iconv"
   "win-iconv-0.0.6.7z" |> extract
   Path.Combine(buildDir, "win-iconv-0.0.6")
   |> from (fun () ->
@@ -333,7 +322,6 @@ Target "win-iconv" <| fun _ ->
   |> ignore
 
 Target "libpng" <| fun _ ->
-  trace "libpng"
   "libpng-1.6.16.7z" |> extract
 
   let slnDir = Path.Combine(buildDir, "libpng-1.6.16", "projects", "vc12")
