@@ -212,7 +212,8 @@ Target "glib" <| fun _ ->
   [Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-build-defines.props"); Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-install.props")]
   |> CopyFiles (Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12"))
 
-  Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12", "glib.sln") |> MSBuildHelper.build (fun parameters ->
+  Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12", "glib.sln")
+  |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
                                      "Configuration", "Release"
@@ -229,6 +230,18 @@ Target "cairo" <| fun _ ->
 Target "harfbuzz" <| fun _ ->
   trace "harfbuzz"
   "harfbuzz-0.9.37.7z" |> extract
+  CopyDir (Path.Combine(buildDir, "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
+  [Path.Combine("slns", "harfbuzz", "src", "hb-gobject-enums.h"); Path.Combine("slns", "harfbuzz", "src", "rllist.txt")]
+  |> CopyFiles (Path.Combine(buildDir, "harfbuzz-0.9.37", "src"))
+
+  Path.Combine(buildDir, "harfbuzz-0.9.37", "win32", "harfbuzz.sln")
+  |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  ) |> ignore
 
 Target "atk" <| fun _ ->
   trace "atk"
@@ -309,6 +322,6 @@ Target "BuildAll" <| fun _ ->
 "openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "glib"]
+"BuildAll" <== ["prep"; "harfbuzz"]
 
 RunTargetOrDefault "BuildAll"
