@@ -254,9 +254,35 @@ Target "atk" <| fun _ ->
   trace "atk"
   "atk-2.14.0.7z" |> extract
 
+  Directory.GetFiles(Path.Combine("slns", "atk", "build", "win32", "vs12"), "*.*")
+  |> CopyFiles (Path.Combine(buildDir, "atk-2.14.0", "build", "win32", "vs12"))
+
+  Path.Combine(buildDir, "atk-2.14.0", "build", "win32", "vs12", "atk.sln")
+  |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  )
+
+  install "atk-2.14.0-rel" |> ignore
+
 Target "gdk-pixbuf" <| fun _ ->
   trace "gdk-pixbuf"
   "gdk-pixbuf-2.30.8.7z" |> extract
+
+  let slnDir = Path.Combine(buildDir, "gdk-pixbuf-2.30.8", "build", "win32", "vc12")
+  CopyDir (slnDir) (Path.Combine("slns", "gdk-pixbuf", "build", "win32", "vc12")) (fun _ -> true)
+
+  Path.Combine(slnDir, "gdk-pixbuf.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"]
+    }
+  )
+
+  install "gdk-pixbuf-2.30.8-rel" |> ignore
 
 Target "pango" <| fun _ ->
   trace "pango"
@@ -310,6 +336,39 @@ Target "libpng" <| fun _ ->
   trace "libpng"
   "libpng-1.6.16.7z" |> extract
 
+  let slnDir = Path.Combine(buildDir, "libpng-1.6.16", "projects", "vc12")
+  CopyDir (slnDir) (Path.Combine("slns", "libpng", "projects", "vc12")) (fun _ -> true)
+
+  Path.Combine(slnDir, "pnglibconf", "pnglibconf.vcxproj")
+  |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release"
+                                    "SolutionDir", slnDir
+                      ]
+    }
+  )
+
+  Path.Combine(slnDir, "libpng", "libpng.vcxproj")
+  |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release"
+                                    "SolutionDir", slnDir
+                      ]
+    }
+  )
+
+  let releaseDir = Path.Combine(buildDir, "libpng-1.6.16", "projects", "vc12Release")
+
+  [Path.Combine(releaseDir, "libpng16.dll"); Path.Combine(releaseDir, "libpng16.pdb")] |> Copy binDir
+  Path.Combine(releaseDir, "libpng16.lib") |> CopyFile libDir
+
+  Path.Combine(buildDir, "libpng-1.6.16") |> from (fun () ->
+    ["png.h"; "pngconf.h"; "pnglibconf.h"; "pngpriv.h"] |> Copy (Path.Combine(installDir, "include"))
+  )
+
+
 Target "BuildAll" <| fun _ ->
   let config = getBuildParamOrDefault "config" "debug"
   trace("BuildAll " + config)
@@ -329,6 +388,6 @@ Target "BuildAll" <| fun _ ->
 "openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "harfbuzz"]
+"BuildAll" <== ["prep"; "gdk-pixbuf"]
 
 RunTargetOrDefault "BuildAll"
