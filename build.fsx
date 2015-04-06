@@ -230,6 +230,8 @@ Target "harfbuzz" <| fun _ ->
 
   CopyFiles (Path.Combine(installDir, "include")) (Directory.GetFiles(Path.Combine(buildDir, "harfbuzz-0.9.37", "src"), "*.h"))
 
+  Path.Combine(buildDir, "harfbuzz-0.9.37", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
+  |> CopyFile (Path.Combine(installDir, "lib"))
 
 Target "atk" <| fun _ ->
   "atk-2.14.0.7z" |> extract
@@ -367,10 +369,12 @@ Target "pango" <| fun _ ->
   Path.Combine(slnDir, "pango.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
-                                     "Configuration", "Release"
+                                     "Configuration", "Release_FC"
                       ]
     }
   )
+
+  install "pango-1.36.8-rel" |> ignore
 
 Target "gtk" <| fun _ ->
   trace "gtk"
