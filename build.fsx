@@ -186,14 +186,6 @@ Target "gettext-runtime" <| fun _ ->
      )
   |> ignore
 
-Target "fontconfig" <| fun _ ->
-  trace "fontconfig"
-  "fontconfig-2.8.0.7z" |> extract
-
-Target "pixman" <| fun _ ->
-  trace "pixman"
-  "pixman-0.32.6.7z" |> extract
-
 Target "glib" <| fun _ ->
   "glib-2.42.1.7z" |> extract
 
@@ -216,10 +208,6 @@ Target "glib" <| fun _ ->
   ) |> ignore
 
   install "glib-rel" |> ignore
-
-Target "cairo" <| fun _ ->
-  trace "cairo"
-  "cairo-1.14.0.7z" |> extract
 
 Target "harfbuzz" <| fun _ ->
   "harfbuzz-0.9.37.7z" |> extract
@@ -275,9 +263,114 @@ Target "gdk-pixbuf" <| fun _ ->
 
   install "gdk-pixbuf-2.30.8-rel" |> ignore
 
+Target "fontconfig" <| fun _ ->
+  "fontconfig-2.8.0.7z" |> extract
+
+  Path.Combine(buildDir, "fontconfig-2.8.0")
+  |> from (fun () ->
+      patch "fontconfig\\fontconfig.patch"
+  )
+
+  CopyFiles (Path.Combine(buildDir, "fontconfig-2.8.0")) (Directory.GetFiles(Path.Combine("slns", "fontconfig"), "*.*", SearchOption.AllDirectories))
+  CopyFiles (Path.Combine(buildDir, "fontconfig-2.8.0", "src")) (Directory.GetFiles(Path.Combine("slns", "fontconfig", "src"), "*.*", SearchOption.AllDirectories))
+
+  Path.Combine(buildDir, "fontconfig-2.8.0", "fontconfig.sln")
+  |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release"
+                                    "SolutionDir", Path.Combine(buildDir, "fontconfig-2.8.0")
+                      ]
+    }
+  )
+
+  // Install the .exe and .pdb files to bin
+  ["fc-cache"; "fc-cat"; "fc-match"; "fc-query"; "fc-scan"]
+  |> List.map (fun x -> [x + ".exe"; x + ".pdb"])
+  |> Seq.fold (fun lst i -> List.append lst i) []
+  |> List.append ["fontconfig.dll"; "fontconfig.pdb"]  // And the .dll
+  |> List.map (fun x -> Path.Combine(buildDir, "fontconfig-2.8.0", "Release", x))
+  |> CopyFiles (Path.Combine(installDir, "bin"))
+
+  ensureDirectory (Path.Combine(installDir, "etc", "fonts"))
+  ["fonts.conf"; "fonts.dtd"]
+  |> List.map (fun x -> Path.Combine(buildDir, "fontconfig-2.8.0"))
+  |> CopyFiles (Path.Combine(installDir, "etc", "fonts"))
+
+  ["fcfreetype.h"; "fcprivate.h"; "fontconfig.h"]
+  |> List.map (fun x -> Path.Combine(buildDir, "fontconfig-2.8.0", "fontconfig", x))
+  |> CopyFiles (Path.Combine(installDir, "include", "fontconfig"))
+
+  Path.Combine(buildDir, "fontconfig-2.8.0", "Release", "fontconfig.lib")
+  |> CopyFile (Path.Combine(installDir, "lib"))
+
+
+Target "pixman" <| fun _ ->
+  "pixman-0.32.6.7z" |> extract
+
+  CopyDir (Path.Combine(buildDir, "pixman-0.32.6", "build")) (Path.Combine("slns", "pixman", "build")) (fun _ -> true)
+
+  Path.Combine("slns", "pixman", "pixman.symbols")
+  |> CopyFile (Path.Combine(buildDir, "pixman-0.32.6", "pixman"))
+
+  let slnDir = Path.Combine(buildDir, "pixman-0.32.6", "build", "win32", "vc12")
+  Path.Combine(slnDir, "pixman.vcxproj") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Configuration", "Release"
+                                    "SolutionDir", slnDir
+                      ]
+    }
+  )
+
+  Path.Combine(slnDir, "install.vcxproj") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Configuration", "Release"
+                                    "SolutionDir", slnDir
+                      ]
+    }
+  )
+
+  install "pixman-0.32.6-rel" |> ignore
+
+Target "cairo" <| fun _ ->
+  "cairo-1.14.0.7z" |> extract
+
+  Path.Combine(buildDir, "cairo-1.14.0")
+  |> from (fun () ->
+    patch "cairo\\cairo-array-vs-struct-initializer.patch"
+  )
+
+  let slnDir = Path.Combine(buildDir, "cairo-1.14.0", "msvc")
+  CopyDir (slnDir) (Path.Combine("slns", "cairo", "msvc")) (fun _ -> true)
+
+  Path.Combine(slnDir, "vc12", "cairo.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release_FC"
+                      ]
+    }
+  )
+
+  install "cairo-1.14.0-rel" |> ignore
+
 Target "pango" <| fun _ ->
-  trace "pango"
   "pango-1.36.8.7z" |> extract
+
+  Path.Combine(buildDir, "pango-1.36.8")
+  |> from (fun () ->
+    patch "pango\\pango-synthesize-fonts-properly.patch"
+  ) |> ignore
+
+  let slnDir = Path.Combine(buildDir, "pango-1.36.8", "build", "win32", "vs12")
+  CopyDir (slnDir) (Path.Combine("slns", "pango", "build", "win32", "vs12")) (fun _ -> true)
+
+  Path.Combine(slnDir, "pango.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = [ "Platform", "Win32"
+                                     "Configuration", "Release"
+                      ]
+    }
+  )
 
 Target "gtk" <| fun _ ->
   trace "gtk"
@@ -376,6 +469,6 @@ Target "BuildAll" <| fun _ ->
 "openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "gdk-pixbuf"]
+"BuildAll" <== ["prep"; "pango"]
 
 RunTargetOrDefault "BuildAll"
