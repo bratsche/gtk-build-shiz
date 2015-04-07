@@ -380,8 +380,29 @@ Target "pango" <| fun _ ->
   install "pango-1.36.8-rel" |> ignore
 
 Target "gtk" <| fun _ ->
-  trace "gtk"
   "gtk-2.24.25.7z" |> extract
+
+  Path.Combine(buildDir(), "gtk-2.24.25")
+  |> from (fun () ->
+    patch "gtk\\gtk-revert-scrolldc-commit.patch"
+    patch "gtk\\gtk-bgimg.patch"
+    patch "gtk\\gtk-accel.patch"
+    patch "gtk\\gtk-multimonitor.patch"
+  )
+
+  let slnDir = Path.Combine(buildDir(), "gtk-2.24.25", "build", "win32", "vs12")
+  Directory.GetFiles(Path.Combine("slns", "gtk", "build", "win32", "vs12"), "*.*")
+  |> CopyFiles slnDir
+
+  Path.Combine(slnDir, "gtk+.sln") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release"
+                      ]
+    }
+  )
+
+  install "gtk-2.24.25-rel" |> ignore
 
 Target "zlib" <| fun _ ->
   "zlib-1.2.8.7z" |> extract
@@ -476,6 +497,6 @@ Target "BuildAll" <| fun _ ->
 "openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "pango"]
+"BuildAll" <== ["prep"; "gtk"]
 
 RunTargetOrDefault "BuildAll"
