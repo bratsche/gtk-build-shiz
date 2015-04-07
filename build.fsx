@@ -11,13 +11,15 @@ open Fake.FileHelper
 open Fake.Git
 open FSharp.Data
 
+let mutable originDir = "C:\\gtk-build"
+
 // Some directories
 // ------------------------------------------------------
-let installDir = "C:\\gtk-build\\gtk\\Win32"
-let buildDir = "C:\\gtk-build\\build\\Win32"
-let binDir = Path.Combine(installDir, "bin")
-let libDir = Path.Combine(installDir, "lib")
-let patchDir = "C:\\gtk-build\\github\\fab\\patches"
+let installDir () = Path.Combine(originDir, "..", "..", "gtk", "Win32")
+let buildDir () = Path.Combine(originDir, "..", "..", "build", "Win32")
+let binDir () = Path.Combine(installDir(), "bin")
+let libDir () = Path.Combine(installDir(), "lib")
+let patchDir () = Path.Combine(originDir, "patches")
 
 // Some utility functions
 // ------------------------------------------------------
@@ -39,9 +41,9 @@ let filenameFromUrl (url:string) =
 let extract (path:string) =
   let file = Path.Combine("src", path)
 
-  Path.Combine("patches", "stack.props") |> CopyFile buildDir
+  Path.Combine("patches", "stack.props") |> CopyFile (buildDir())
 
-  let path = Path.Combine(buildDir, Path.GetFileNameWithoutExtension(file))
+  let path = Path.Combine(buildDir(), Path.GetFileNameWithoutExtension(file))
   DeleteDir path
 
   if not (Directory.Exists(path)) then
@@ -52,8 +54,8 @@ let extract (path:string) =
       |> ignore
 
 let install (path) =
-    let inDi = new DirectoryInfo(Path.Combine(buildDir, path))
-    let outDi = new DirectoryInfo(installDir)
+    let inDi = new DirectoryInfo(Path.Combine(buildDir(), path))
+    let outDi = new DirectoryInfo(installDir())
 
     printfn "Installing from %s to %s..." inDi.FullName outDi.FullName
     copyRecursive inDi outDi true
@@ -64,21 +66,22 @@ let from (action: unit -> unit) (path: string) =
     popd()
 
 let patch filename =
-  sprintf "-p1 -i %s" (Path.Combine(patchDir, filename))
+  sprintf "-p1 -i %s" (Path.Combine(patchDir(), filename))
   |> sh "C:\\msys32\\usr\\bin\\patch.exe"
 
 
 // Targets
 // --------------------------------------------------------
 Target "prep" <| fun _ ->
-    ensureDirectory buildDir
-    ensureDirectory installDir
+    originDir <- pwd()
+    ensureDirectory (buildDir())
+    ensureDirectory (installDir())
 
 Target "freetype" <| fun _ ->
   "freetype-2.5.5.7z" |> extract
 
   let srcvcpath = Path.Combine("slns", "freetype", "builds", "windows", "vc2013")
-  let vcpath = Path.Combine(buildDir, "freetype-2.5.5", "builds", "windows", "vc2013")
+  let vcpath = Path.Combine(buildDir(), "freetype-2.5.5", "builds", "windows", "vc2013")
 
   ensureDirectory vcpath
   CopyRecursive srcvcpath vcpath true
@@ -92,8 +95,8 @@ Target "freetype" <| fun _ ->
     }
   ) |> ignore
 
-  let sourceDir = Path.Combine(buildDir, "freetype-2.5.5")
-  let includeDir = Path.Combine(installDir, "include")
+  let sourceDir = Path.Combine(buildDir(), "freetype-2.5.5")
+  let includeDir = Path.Combine(installDir(), "include")
   ensureDirectory(includeDir)
 
   let includeSrc = Path.Combine(sourceDir, "include")
@@ -108,13 +111,13 @@ Target "freetype" <| fun _ ->
   // </XXX>
 
   [ Path.Combine(sourceDir, "objs", "vc2013", "Win32", "freetype.lib")]
-  |> Copy libDir
+  |> Copy (libDir())
 
 Target "libxml2" <| fun _ ->
-  let checkoutDir = Path.Combine(buildDir, "libxml2")
+  let checkoutDir = Path.Combine(buildDir(), "libxml2")
 
   if not (Directory.Exists(checkoutDir)) then
-      Git.Repository.clone (buildDir) "https://github.com/bratsche/libxml2.git" "libxml2"
+      Git.Repository.clone (buildDir()) "https://github.com/bratsche/libxml2.git" "libxml2"
       Git.Reset.hard (Path.Combine(pwd(), "build", "win32", "libxml2")) "726f67e2f140f8d936dfe993bf9ded3180d750d2" |> ignore
 
   Path.Combine(checkoutDir, "win32", "vc12") |> ensureDirectory
@@ -136,20 +139,20 @@ Target "libxml2" <| fun _ ->
 
   ["libxml2.dll"; "libxml2.pdb"; "runsuite.exe"; "runsuite.pdb"]
   |> List.map (fun x -> Path.Combine(checkoutDir, "win32", "vc12", "Release", x))
-  |> CopyFiles (Path.Combine(installDir, "bin"))
+  |> CopyFiles (Path.Combine(installDir(), "bin"))
 
-  Path.Combine(checkoutDir, "win32", "vc12", "Release", "libxml2.lib") |> CopyFile (Path.Combine(installDir, "lib"))
+  Path.Combine(checkoutDir, "win32", "vc12", "Release", "libxml2.lib") |> CopyFile (Path.Combine(installDir(), "lib"))
 
   (Directory.GetFiles(Path.Combine(checkoutDir, "include", "libxml"), "*.h") |> Array.toList) @ (["win32config.h"; "wsockcompat.h"] |> List.map (fun x -> Path.Combine(checkoutDir, "include", x)))
-  |> CopyFiles (Path.Combine(installDir, "include", "libxml"))
+  |> CopyFiles (Path.Combine(installDir(), "include", "libxml"))
 
 Target "libffi" <| fun _ ->
   "libffi-3.0.13.7z" |> extract
 
-  CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
-  CopyDir (Path.Combine(buildDir, "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
 
-  Path.Combine(buildDir, "libffi-3.0.13", "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
+  Path.Combine(buildDir(), "libffi-3.0.13", "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
                                      "Configuration", "Release"
@@ -157,11 +160,11 @@ Target "libffi" <| fun _ ->
     }
   ) |> ignore
 
-  [Path.Combine(buildDir, "libffi-3.0.13", "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir, "libffi-3.0.13", "src", "x86", "ffitarget.h")]
-  |> CopyFiles (Path.Combine(installDir, "include"))
+  [Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir(), "libffi-3.0.13", "src", "x86", "ffitarget.h")]
+  |> CopyFiles (Path.Combine(installDir(), "include"))
 
-  Path.Combine(buildDir, "libffi-rel", "lib", "libffi.lib")
-  |> CopyFile (Path.Combine(installDir, "lib"))
+  Path.Combine(buildDir(), "libffi-rel", "lib", "libffi.lib")
+  |> CopyFile (Path.Combine(installDir(), "lib"))
 
 Target "openssl" <| fun _ ->
   trace "openssl"
@@ -170,10 +173,10 @@ Target "openssl" <| fun _ ->
 Target "gettext-runtime" <| fun _ ->
   "gettext-runtime-0.18.7z" |> extract
 
-  let iconvHeaders = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "include")
-  let iconvLib = Path.Combine(installDir, "..", "..", "..", "gtk", "Win32", "lib", "iconv.lib")
+  let iconvHeaders = Path.Combine(installDir(), "..", "..", "..", "gtk", "Win32", "include")
+  let iconvLib = Path.Combine(installDir(), "..", "..", "..", "gtk", "Win32", "lib", "iconv.lib")
 
-  Path.Combine(buildDir, "gettext-runtime-0.18")
+  Path.Combine(buildDir(), "gettext-runtime-0.18")
   |> from (fun () ->
         patch "gettext-runtime\\gettext-runtime.patch"
         "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=..\..\..\gtk\Win32\" -DCMAKE_BUILD_TYPE=Debug"
@@ -189,16 +192,16 @@ Target "gettext-runtime" <| fun _ ->
 Target "glib" <| fun _ ->
   "glib-2.42.1.7z" |> extract
 
-  Path.Combine(buildDir, "glib-2.42.1")
+  Path.Combine(buildDir(), "glib-2.42.1")
   |> from (fun () ->
     patch "glib\\glib-if_nametoindex.patch"
     patch "glib\\glib-package-installation-directory.patch"
   )
 
   [Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-build-defines.props"); Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-install.props")]
-  |> CopyFiles (Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12"))
+  |> CopyFiles (Path.Combine(buildDir(), "glib-2.42.1", "build", "win32", "vs12"))
 
-  Path.Combine(buildDir, "glib-2.42.1", "build", "win32", "vs12", "glib.sln")
+  Path.Combine(buildDir(), "glib-2.42.1", "build", "win32", "vs12", "glib.sln")
   |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -211,11 +214,11 @@ Target "glib" <| fun _ ->
 
 Target "harfbuzz" <| fun _ ->
   "harfbuzz-0.9.37.7z" |> extract
-  CopyDir (Path.Combine(buildDir, "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
   [Path.Combine("slns", "harfbuzz", "src", "hb-gobject-enums.h"); Path.Combine("slns", "harfbuzz", "src", "rllist.txt")]
-  |> CopyFiles (Path.Combine(buildDir, "harfbuzz-0.9.37", "src"))
+  |> CopyFiles (Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"))
 
-  Path.Combine(buildDir, "harfbuzz-0.9.37", "win32", "harfbuzz.sln")
+  Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "harfbuzz.sln")
   |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -224,22 +227,22 @@ Target "harfbuzz" <| fun _ ->
     }
   ) |> ignore
 
-  let releaseDir = Path.Combine(buildDir, "harfbuzz-0.9.37", "win32", "libs", "Release")
+  let releaseDir = Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "Release")
   [Path.Combine(releaseDir, "harfbuzz.dll"); Path.Combine(releaseDir, "harfbuzz.pdb")]
-  |> CopyFiles (Path.Combine(installDir, "bin"))
+  |> CopyFiles (Path.Combine(installDir(), "bin"))
 
-  CopyFiles (Path.Combine(installDir, "include")) (Directory.GetFiles(Path.Combine(buildDir, "harfbuzz-0.9.37", "src"), "*.h"))
+  CopyFiles (Path.Combine(installDir(), "include")) (Directory.GetFiles(Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"), "*.h"))
 
-  Path.Combine(buildDir, "harfbuzz-0.9.37", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
-  |> CopyFile (Path.Combine(installDir, "lib"))
+  Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
+  |> CopyFile (Path.Combine(installDir(), "lib"))
 
 Target "atk" <| fun _ ->
   "atk-2.14.0.7z" |> extract
 
   Directory.GetFiles(Path.Combine("slns", "atk", "build", "win32", "vs12"), "*.*")
-  |> CopyFiles (Path.Combine(buildDir, "atk-2.14.0", "build", "win32", "vs12"))
+  |> CopyFiles (Path.Combine(buildDir(), "atk-2.14.0", "build", "win32", "vs12"))
 
-  Path.Combine(buildDir, "atk-2.14.0", "build", "win32", "vs12", "atk.sln")
+  Path.Combine(buildDir(), "atk-2.14.0", "build", "win32", "vs12", "atk.sln")
   |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -253,7 +256,7 @@ Target "atk" <| fun _ ->
 Target "gdk-pixbuf" <| fun _ ->
   "gdk-pixbuf-2.30.8.7z" |> extract
 
-  let slnDir = Path.Combine(buildDir, "gdk-pixbuf-2.30.8", "build", "win32", "vc12")
+  let slnDir = Path.Combine(buildDir(), "gdk-pixbuf-2.30.8", "build", "win32", "vc12")
   CopyDir (slnDir) (Path.Combine("slns", "gdk-pixbuf", "build", "win32", "vc12")) (fun _ -> true)
 
   Path.Combine(slnDir, "gdk-pixbuf.sln") |> MSBuildHelper.build (fun parameters ->
@@ -268,20 +271,20 @@ Target "gdk-pixbuf" <| fun _ ->
 Target "fontconfig" <| fun _ ->
   "fontconfig-2.8.0.7z" |> extract
 
-  Path.Combine(buildDir, "fontconfig-2.8.0")
+  Path.Combine(buildDir(), "fontconfig-2.8.0")
   |> from (fun () ->
       patch "fontconfig\\fontconfig.patch"
   )
 
-  CopyFiles (Path.Combine(buildDir, "fontconfig-2.8.0")) (Directory.GetFiles(Path.Combine("slns", "fontconfig"), "*.*", SearchOption.AllDirectories))
-  CopyFiles (Path.Combine(buildDir, "fontconfig-2.8.0", "src")) (Directory.GetFiles(Path.Combine("slns", "fontconfig", "src"), "*.*", SearchOption.AllDirectories))
+  CopyFiles (Path.Combine(buildDir(), "fontconfig-2.8.0")) (Directory.GetFiles(Path.Combine("slns", "fontconfig"), "*.*", SearchOption.AllDirectories))
+  CopyFiles (Path.Combine(buildDir(), "fontconfig-2.8.0", "src")) (Directory.GetFiles(Path.Combine("slns", "fontconfig", "src"), "*.*", SearchOption.AllDirectories))
 
-  Path.Combine(buildDir, "fontconfig-2.8.0", "fontconfig.sln")
+  Path.Combine(buildDir(), "fontconfig-2.8.0", "fontconfig.sln")
   |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = ["Platform", "Win32"
                                     "Configuration", "Release"
-                                    "SolutionDir", Path.Combine(buildDir, "fontconfig-2.8.0")
+                                    "SolutionDir", Path.Combine(buildDir(), "fontconfig-2.8.0")
                       ]
     }
   )
@@ -291,31 +294,31 @@ Target "fontconfig" <| fun _ ->
   |> List.map (fun x -> [x + ".exe"; x + ".pdb"])
   |> Seq.fold (fun lst i -> List.append lst i) []
   |> List.append ["fontconfig.dll"; "fontconfig.pdb"]  // And the .dll
-  |> List.map (fun x -> Path.Combine(buildDir, "fontconfig-2.8.0", "Release", x))
-  |> CopyFiles (Path.Combine(installDir, "bin"))
+  |> List.map (fun x -> Path.Combine(buildDir(), "fontconfig-2.8.0", "Release", x))
+  |> CopyFiles (Path.Combine(installDir(), "bin"))
 
-  ensureDirectory (Path.Combine(installDir, "etc", "fonts"))
+  ensureDirectory (Path.Combine(installDir(), "etc", "fonts"))
   ["fonts.conf"; "fonts.dtd"]
-  |> List.map (fun x -> Path.Combine(buildDir, "fontconfig-2.8.0"))
-  |> CopyFiles (Path.Combine(installDir, "etc", "fonts"))
+  |> List.map (fun x -> Path.Combine(buildDir(), "fontconfig-2.8.0"))
+  |> CopyFiles (Path.Combine(installDir(), "etc", "fonts"))
 
   ["fcfreetype.h"; "fcprivate.h"; "fontconfig.h"]
-  |> List.map (fun x -> Path.Combine(buildDir, "fontconfig-2.8.0", "fontconfig", x))
-  |> CopyFiles (Path.Combine(installDir, "include", "fontconfig"))
+  |> List.map (fun x -> Path.Combine(buildDir(), "fontconfig-2.8.0", "fontconfig", x))
+  |> CopyFiles (Path.Combine(installDir(), "include", "fontconfig"))
 
-  Path.Combine(buildDir, "fontconfig-2.8.0", "Release", "fontconfig.lib")
-  |> CopyFile (Path.Combine(installDir, "lib"))
+  Path.Combine(buildDir(), "fontconfig-2.8.0", "Release", "fontconfig.lib")
+  |> CopyFile (Path.Combine(installDir(), "lib"))
 
 
 Target "pixman" <| fun _ ->
   "pixman-0.32.6.7z" |> extract
 
-  CopyDir (Path.Combine(buildDir, "pixman-0.32.6", "build")) (Path.Combine("slns", "pixman", "build")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "pixman-0.32.6", "build")) (Path.Combine("slns", "pixman", "build")) (fun _ -> true)
 
   Path.Combine("slns", "pixman", "pixman.symbols")
-  |> CopyFile (Path.Combine(buildDir, "pixman-0.32.6", "pixman"))
+  |> CopyFile (Path.Combine(buildDir(), "pixman-0.32.6", "pixman"))
 
-  let slnDir = Path.Combine(buildDir, "pixman-0.32.6", "build", "win32", "vc12")
+  let slnDir = Path.Combine(buildDir(), "pixman-0.32.6", "build", "win32", "vc12")
   Path.Combine(slnDir, "pixman.vcxproj") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = ["Configuration", "Release"
@@ -337,12 +340,12 @@ Target "pixman" <| fun _ ->
 Target "cairo" <| fun _ ->
   "cairo-1.14.0.7z" |> extract
 
-  Path.Combine(buildDir, "cairo-1.14.0")
+  Path.Combine(buildDir(), "cairo-1.14.0")
   |> from (fun () ->
     patch "cairo\\cairo-array-vs-struct-initializer.patch"
   )
 
-  let slnDir = Path.Combine(buildDir, "cairo-1.14.0", "msvc")
+  let slnDir = Path.Combine(buildDir(), "cairo-1.14.0", "msvc")
   CopyDir (slnDir) (Path.Combine("slns", "cairo", "msvc")) (fun _ -> true)
 
   Path.Combine(slnDir, "vc12", "cairo.sln") |> MSBuildHelper.build (fun parameters ->
@@ -358,12 +361,12 @@ Target "cairo" <| fun _ ->
 Target "pango" <| fun _ ->
   "pango-1.36.8.7z" |> extract
 
-  Path.Combine(buildDir, "pango-1.36.8")
+  Path.Combine(buildDir(), "pango-1.36.8")
   |> from (fun () ->
     patch "pango\\pango-synthesize-fonts-properly.patch"
   ) |> ignore
 
-  let slnDir = Path.Combine(buildDir, "pango-1.36.8", "build", "win32", "vs12")
+  let slnDir = Path.Combine(buildDir(), "pango-1.36.8", "build", "win32", "vs12")
   CopyDir (slnDir) (Path.Combine("slns", "pango", "build", "win32", "vs12")) (fun _ -> true)
 
   Path.Combine(slnDir, "pango.sln") |> MSBuildHelper.build (fun parameters ->
@@ -383,7 +386,7 @@ Target "gtk" <| fun _ ->
 Target "zlib" <| fun _ ->
   "zlib-1.2.8.7z" |> extract
 
-  let slnDir = Path.Combine(buildDir, "zlib-1.2.8", "contrib", "vstudio", "vs12")
+  let slnDir = Path.Combine(buildDir(), "zlib-1.2.8", "contrib", "vstudio", "vs12")
   CopyDir (slnDir) (Path.Combine("slns", "zlib", "contrib", "vstudio", "vc12")) (fun _ -> true)
 
   Path.Combine(slnDir, "zlibvc.sln") |> MSBuildHelper.build (fun parameters ->
@@ -394,22 +397,22 @@ Target "zlib" <| fun _ ->
     }
   ) |> ignore
 
-  let sourceDir = Path.Combine(buildDir, "zlib-1.2.8")
-  let includeDir = Path.Combine(installDir, "include")
+  let sourceDir = Path.Combine(buildDir(), "zlib-1.2.8")
+  let includeDir = Path.Combine(installDir(), "include")
   ensureDirectory(includeDir)
   [ Path.Combine(sourceDir, "zlib.h"); Path.Combine(sourceDir, "zconf.h") ] |> Copy includeDir
 
   [Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.dll"); Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.map"); Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.pdb")]
-  |> Copy binDir
+  |> Copy (binDir())
 
   [Path.Combine(slnDir, "x86", "ZlibDllReleaseWithoutAsm", "zlib1.lib"); Path.Combine(slnDir, "x86", "ZlibStatReleaseWithoutAsm", "zlibstat.lib")]
-  |> Copy libDir
+  |> Copy (libDir())
 
 Target "win-iconv" <| fun _ ->
   "win-iconv-0.0.6.7z" |> extract
-  Path.Combine(buildDir, "win-iconv-0.0.6")
+  Path.Combine(buildDir(), "win-iconv-0.0.6")
   |> from (fun () ->
-        sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug" installDir
+        sprintf "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=%s\" -DCMAKE_BUILD_TYPE=Debug" (installDir())
         |> sh "cmake"
         |> ignore
 
@@ -421,7 +424,7 @@ Target "win-iconv" <| fun _ ->
 Target "libpng" <| fun _ ->
   "libpng-1.6.16.7z" |> extract
 
-  let slnDir = Path.Combine(buildDir, "libpng-1.6.16", "projects", "vc12")
+  let slnDir = Path.Combine(buildDir(), "libpng-1.6.16", "projects", "vc12")
   CopyDir (slnDir) (Path.Combine("slns", "libpng", "projects", "vc12")) (fun _ -> true)
 
   Path.Combine(slnDir, "pnglibconf", "pnglibconf.vcxproj")
@@ -444,13 +447,13 @@ Target "libpng" <| fun _ ->
     }
   )
 
-  let releaseDir = Path.Combine(buildDir, "libpng-1.6.16", "projects", "vc12Release")
+  let releaseDir = Path.Combine(buildDir(), "libpng-1.6.16", "projects", "vc12Release")
 
-  [Path.Combine(releaseDir, "libpng16.dll"); Path.Combine(releaseDir, "libpng16.pdb")] |> Copy binDir
-  Path.Combine(releaseDir, "libpng16.lib") |> CopyFile libDir
+  [Path.Combine(releaseDir, "libpng16.dll"); Path.Combine(releaseDir, "libpng16.pdb")] |> Copy (binDir())
+  Path.Combine(releaseDir, "libpng16.lib") |> CopyFile (libDir())
 
-  Path.Combine(buildDir, "libpng-1.6.16") |> from (fun () ->
-    ["png.h"; "pngconf.h"; "pnglibconf.h"; "pngpriv.h"] |> Copy (Path.Combine(installDir, "include"))
+  Path.Combine(buildDir(), "libpng-1.6.16") |> from (fun () ->
+    ["png.h"; "pngconf.h"; "pnglibconf.h"; "pngpriv.h"] |> Copy (Path.Combine(installDir(), "include"))
   )
 
 
