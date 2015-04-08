@@ -226,7 +226,7 @@ Target "harfbuzz" <| fun _ ->
   ) |> ignore
 
   let releaseDir = Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "Release")
-  [Path.Combine(releaseDir, "harfbuzz.dll"); Path.Combine(releaseDir, "harfbuzz.pdb")]
+  [Path.Combine(releaseDir, "libharfbuzz-0.dll"); Path.Combine(releaseDir, "harfbuzz.pdb")]
   |> CopyFiles (Path.Combine(installDir(), "bin"))
 
   CopyFiles (Path.Combine(installDir(), "include")) (Directory.GetFiles(Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"), "*.h"))

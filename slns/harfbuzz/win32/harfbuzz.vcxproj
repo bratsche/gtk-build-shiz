@@ -109,7 +109,7 @@
     <IntDir>$(SolutionDir)objs\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)\..\deps\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\..\deps\lib;$(LibraryPath)</LibraryPath>
-    <TargetName>$(ProjectName)d</TargetName>
+    <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -117,7 +117,7 @@
     <IntDir>$(SolutionDir)objs\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)\..\deps\include;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\..\deps\lib;$(LibraryPath)</LibraryPath>
-    <TargetName>$(ProjectName)d</TargetName>
+    <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -143,6 +143,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <OutputFile>$(OutDir)lib$(TargetName)-0$(TargetExt)</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -179,6 +180,7 @@
       <ImportLibrary>$(SolutionDir)libs\$(ProjectName)\$(Configuration)\$(TargetName).lib</ImportLibrary>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>harfbuzz.def</ModuleDefinitionFile>
+      <OutputFile>$(OutDir)lib$(TargetName)-0$(TargetExt)</OutputFile>
     </Link>
     <PreBuildEvent>
       <Command>cd $(SolutionDir)\..\src
