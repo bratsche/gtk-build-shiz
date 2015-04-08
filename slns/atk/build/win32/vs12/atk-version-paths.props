@@ -10,8 +10,8 @@
     <AtkLibtoolCompatibleDllSuffix>-$(ApiVersion)-0</AtkLibtoolCompatibleDllSuffix>
     <AtkSeparateVSDllPrefix />
     <AtkSeparateVSDllSuffix>-1.0</AtkSeparateVSDllSuffix>
-    <AtkDllPrefix>$(AtkSeparateVSDllPrefix)</AtkDllPrefix>
-    <AtkDllSuffix>$(AtkSeparateVSDllSuffix)</AtkDllSuffix>
+    <AtkDllPrefix>$(AtkLibtoolCompatibleDllPrefix)</AtkDllPrefix>
+    <AtkDllSuffix>$(AtkLibtoolCompatibleDllSuffix)</AtkDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>atkversionpathsprops</_PropertySheetDisplayName>
