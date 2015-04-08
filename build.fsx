@@ -76,6 +76,8 @@ Target "prep" <| fun _ ->
     originDir <- pwd()
     ensureDirectory (buildDir())
     ensureDirectory (installDir())
+    ensureDirectory (binDir())
+    ensureDirectory (libDir())
 
 Target "freetype" <| fun _ ->
   "freetype-2.5.5.7z" |> extract
@@ -166,10 +168,6 @@ Target "libffi" <| fun _ ->
   Path.Combine(buildDir(), "libffi-rel", "lib", "libffi.lib")
   |> CopyFile (Path.Combine(installDir(), "lib"))
 
-Target "openssl" <| fun _ ->
-  trace "openssl"
-  "openssl-1.0.1l.7z" |> extract
-
 Target "gettext-runtime" <| fun _ ->
   "gettext-runtime-0.18.7z" |> extract
 
@@ -198,7 +196,7 @@ Target "glib" <| fun _ ->
     patch "glib\\glib-package-installation-directory.patch"
   )
 
-  [Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-build-defines.props"); Path.Combine("slns", "glib", "build", "win32", "vs12", "glib-install.props")]
+  Directory.GetFiles(Path.Combine("slns", "glib", "build", "win32", "vs12"), "*.*")
   |> CopyFiles (Path.Combine(buildDir(), "glib-2.42.1", "build", "win32", "vs12"))
 
   Path.Combine(buildDir(), "glib-2.42.1", "build", "win32", "vs12", "glib.sln")
@@ -494,7 +492,6 @@ Target "BuildAll" <| fun _ ->
 "harfbuzz" <== ["freetype"; "glib"]
 "libpng" <== ["zlib"]
 "libxml2" <== ["win-iconv"]
-"openssl" <== ["zlib"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
 "BuildAll" <== ["prep"; "gtk"]

@@ -9,8 +9,8 @@
     <GlibLibtoolCompatibleDllSuffix>-$(ApiVersion)-0</GlibLibtoolCompatibleDllSuffix>
     <GlibSeparateVSDllPrefix />
     <GlibSeparateVSDllSuffix>-2.0</GlibSeparateVSDllSuffix>
-    <GlibDllPrefix>$(GlibSeparateVSDllPrefix)</GlibDllPrefix>
-    <GlibDllSuffix>$(GlibSeparateVSDllSuffix)</GlibDllSuffix>
+    <GlibDllPrefix>$(GlibLibtoolCompatibleDllPrefix)</GlibDllPrefix>
+    <GlibDllSuffix>$(GlibLibtoolCompatibleDllSuffix)</GlibDllSuffix>
     <PythonPath>..\..\..\..\..\....\..\python-2.7\$(Platform)</PythonPath>
   </PropertyGroup>
   <PropertyGroup>
