@@ -172,8 +172,8 @@ copy $(SolutionDir)$(Configuration)\$(Platform)\bin\*.lib $(CopyDir)\lib
     <CairoLibtoolCompatibleDllSuffix>-2</CairoLibtoolCompatibleDllSuffix>
     <CairoSeparateVS10DllPrefix />
     <CairoSeparateVS10DllSuffix></CairoSeparateVS10DllSuffix>
-    <CairoDllPrefix>$(CairoSeparateVS10DllPrefix)</CairoDllPrefix>
-    <CairoDllSuffix>$(CairoSeparateVS10DllSuffix)</CairoDllSuffix>
+    <CairoDllPrefix>$(CairoLibtoolCompatibleDllPrefix)</CairoDllPrefix>
+    <CairoDllSuffix>$(CairoLibtoolCompatibleDllSuffix)</CairoDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>cairoprops</_PropertySheetDisplayName>
