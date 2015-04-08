@@ -9,8 +9,8 @@
     <PangoLibtoolCompatibleDllSuffix>-$(PangoApiVersion)-0</PangoLibtoolCompatibleDllSuffix>
     <PangoSeparateVSDllPrefix />
     <PangoSeparateVSDllSuffix>-1.0</PangoSeparateVSDllSuffix>
-    <PangoDllPrefix>$(PangoSeparateVSDllPrefix)</PangoDllPrefix>
-    <PangoDllSuffix>$(PangoSeparateVSDllSuffix)</PangoDllSuffix>
+    <PangoDllPrefix>$(PangoLibtoolCompatibleDllPrefix)</PangoDllPrefix>
+    <PangoDllSuffix>$(PangoLibtoolCompatibleDllSuffix)</PangoDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>pangoversionpathsprops</_PropertySheetDisplayName>
