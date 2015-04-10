@@ -291,7 +291,7 @@ Target "fontconfig" <| fun _ ->
   ["fc-cache"; "fc-cat"; "fc-match"; "fc-query"; "fc-scan"]
   |> List.map (fun x -> [x + ".exe"; x + ".pdb"])
   |> Seq.fold (fun lst i -> List.append lst i) []
-  |> List.append ["fontconfig.dll"; "fontconfig.pdb"]  // And the .dll
+  |> List.append ["libfontconfig-1.dll"; "fontconfig.pdb"]  // And the .dll
   |> List.map (fun x -> Path.Combine(buildDir(), "fontconfig-2.8.0", "Release", x))
   |> CopyFiles (Path.Combine(installDir(), "bin"))
 

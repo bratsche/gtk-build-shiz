@@ -105,7 +105,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>libxml2.lib;freetype_d.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)fontconfig.dll</OutputFile>
+      <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -138,7 +138,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>libxml2.lib;freetype_d.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)fontconfig.dll</OutputFile>
+      <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -169,7 +169,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>libxml2.lib;iconv.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)fontconfig.dll</OutputFile>
+      <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -202,7 +202,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>libxml2.lib;iconv.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)fontconfig.dll</OutputFile>
+      <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
