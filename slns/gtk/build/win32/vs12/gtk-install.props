@@ -10,7 +10,7 @@
     <GtkDoInstall>
 mkdir $(CopyDir)\bin
 
-copy $(BinDir)\*-2.0.dll $(CopyDir)\bin
+copy $(BinDir)\*.dll $(CopyDir)\bin
 
 copy $(BinDir)\*.pdb $(CopyDir)\bin
 
