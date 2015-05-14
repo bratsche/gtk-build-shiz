@@ -77,8 +77,8 @@ cd vs$(VSVer)
     <GdkPixbufLibtoolCompatibleDllSuffix>-$(ApiVersion)-0</GdkPixbufLibtoolCompatibleDllSuffix>
     <GdkPixbufSeparateVSDllPrefix />
     <GdkPixbufSeparateVSDllSuffix>-2.0</GdkPixbufSeparateVSDllSuffix>
-    <GdkPixbufDllPrefix>$(GdkPixbufSeparateVSDllPrefix)</GdkPixbufDllPrefix>
-    <GdkPixbufDllSuffix>$(GdkPixbufSeparateVSDllSuffix)</GdkPixbufDllSuffix>
+    <GdkPixbufDllPrefix>$(GdkPixbufLibtoolCompatibleDllPrefix)</GdkPixbufDllPrefix>
+    <GdkPixbufDllSuffix>$(GdkPixbufLibtoolCompatibleDllSuffix)</GdkPixbufDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>gdk-pixbufprops</_PropertySheetDisplayName>
