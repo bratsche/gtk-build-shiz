@@ -151,9 +151,6 @@ Target "libxml2" <| fun _ ->
 Target "libffi" <| fun _ ->
   "libffi-3.0.13.7z" |> extract
 
-  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
-  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
-
   Path.Combine(buildDir(), "libffi-3.0.13", "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -161,6 +158,9 @@ Target "libffi" <| fun _ ->
                       ]
     }
   ) |> ignore
+
+  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
 
   [Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir(), "libffi-3.0.13", "src", "x86", "ffitarget.h")]
   |> CopyFiles (Path.Combine(installDir(), "include"))
