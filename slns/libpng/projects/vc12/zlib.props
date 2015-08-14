@@ -44,11 +44,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..\..\..\..\..\gtk\$(Platform)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\..\..\..\install\gtk\$(Platform)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <!--AdditionalDependencies>zlib1.lib</AdditionalDependencies-->
-      <AdditionalLibraryDirectories>..\..\..\..\..\..\gtk\$(Platform)\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\..\..\..\install\gtk\$(Platform)\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
 </Project>

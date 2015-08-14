@@ -11,12 +11,12 @@ open Fake.FileHelper
 open Fake.Git
 open FSharp.Data
 
-let mutable originDir = "C:\\gtk-build"
+let mutable originDir = "C:\\gtk-build-shiz"
 
 // Some directories
 // ------------------------------------------------------
-let installDir () = Path.Combine(originDir, "..", "..", "gtk", "Win32")
-let buildDir () = Path.Combine(originDir, "..", "..", "build", "Win32")
+let installDir () = Path.Combine(originDir, "install", "gtk", "Win32")
+let buildDir () = Path.Combine(originDir, "build", "Win32")
 let binDir () = Path.Combine(installDir(), "bin")
 let libDir () = Path.Combine(installDir(), "lib")
 let patchDir () = Path.Combine(originDir, "patches")
@@ -49,7 +49,7 @@ let extract (path:string) =
   if not (Directory.Exists(path)) then
       printfn "extracting %s" file
 
-      sprintf "x %s -o..\\..\\build\\win32" file
+      sprintf "x %s -o.\\build\\win32" file
       |> sh "C:\Program Files\7-Zip\7z.exe"
       |> ignore
 
@@ -151,7 +151,14 @@ Target "libxml2" <| fun _ ->
 Target "libffi" <| fun _ ->
   "libffi-3.0.13.7z" |> extract
 
-  Path.Combine(buildDir(), "libffi-3.0.13", "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
+  let ffiRootDir = Path.Combine(buildDir(), "libffi-3.0.13")
+  ensureDirectory (Path.Combine(ffiRootDir, "build", "Win32", "vs12"))
+  CopyDir (Path.Combine(ffiRootDir, "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
+
+  ensureDirectory (Path.Combine(ffiRootDir, "i686-pc-mingw32"))
+  CopyDir (Path.Combine(ffiRootDir, "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
+
+  Path.Combine(ffiRootDir, "build", "win32", "vs12", "libffi.sln") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
                                      "Configuration", "Release"
@@ -159,10 +166,7 @@ Target "libffi" <| fun _ ->
     }
   ) |> ignore
 
-  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "build")) (Path.Combine("slns", "libffi", "build")) (fun _ -> true)
-  CopyDir (Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32")) (Path.Combine("slns", "libffi", "i686-pc-mingw32")) (fun _ -> true)
-
-  [Path.Combine(buildDir(), "libffi-3.0.13", "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir(), "libffi-3.0.13", "src", "x86", "ffitarget.h")]
+  [Path.Combine(ffiRootDir, "i686-pc-mingw32", "include", "ffi.h"); Path.Combine(buildDir(), "libffi-3.0.13", "src", "x86", "ffitarget.h")]
   |> CopyFiles (Path.Combine(installDir(), "include"))
 
   Path.Combine(buildDir(), "libffi-rel", "lib", "libffi.lib")
@@ -171,13 +175,10 @@ Target "libffi" <| fun _ ->
 Target "gettext-runtime" <| fun _ ->
   "gettext-runtime-0.18.7z" |> extract
 
-  let iconvHeaders = Path.Combine(installDir(), "..", "..", "..", "gtk", "Win32", "include")
-  let iconvLib = Path.Combine(installDir(), "..", "..", "..", "gtk", "Win32", "lib", "iconv.lib")
-
   Path.Combine(buildDir(), "gettext-runtime-0.18")
   |> from (fun () ->
         patch "gettext-runtime\\gettext-runtime.patch"
-        "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=..\..\..\gtk\Win32\" -DCMAKE_BUILD_TYPE=Debug"
+        "-G \"NMake Makefiles\" \"-DCMAKE_INSTALL_PREFIX=..\..\..\install\gtk\Win32\" -DCMAKE_BUILD_TYPE=Debug"
         |> sh "cmake"
         |> ignore
 

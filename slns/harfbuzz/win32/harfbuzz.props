@@ -7,11 +7,11 @@
 
 	<ItemDefinitionGroup>
 		<ClCompile>
-			<AdditionalIncludeDirectories>..\..\..\..\gtk\$(Platform)\include;..\..\..\..\gtk\$(Platform)\include\glib-2.0;..\..\..\..\gtk\$(Platform)\lib\glib-2.0\include</AdditionalIncludeDirectories>
+			<AdditionalIncludeDirectories>..\..\..\..\install\gtk\$(Platform)\include;..\..\..\..\install\gtk\$(Platform)\include\glib-2.0;..\..\..\..\install\gtk\$(Platform)\lib\glib-2.0\include</AdditionalIncludeDirectories>
 			<DisableSpecificWarnings>4244;4996</DisableSpecificWarnings>
 		</ClCompile>
 		<Link>
-			<AdditionalLibraryDirectories>..\..\..\..\gtk\$(Platform)\lib</AdditionalLibraryDirectories>
+			<AdditionalLibraryDirectories>..\..\..\..\install\gtk\$(Platform)\lib</AdditionalLibraryDirectories>
 		</Link>
 	</ItemDefinitionGroup>
 
