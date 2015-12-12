@@ -94,7 +94,7 @@
       <Command>$(GenPixmanDef)</Command>
     </PreLinkEvent>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName)-$(ApiVersion).dll</OutputFile>
+      <OutputFile>$(OutDir)$(PixmanDllPrefix)$(ProjectName)$(PixmanDllSuffix).dll</OutputFile>
       <ModuleDefinitionFile>$(IntDir)$(ProjectName).def</ModuleDefinitionFile>
       <ImportLibrary>$(TargetDir)$(ProjectName)-$(ApiVersion).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -120,7 +120,7 @@
       <Command>$(GenPixmanDef)</Command>
     </PreLinkEvent>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName)-$(ApiVersion).dll</OutputFile>
+      <OutputFile>$(OutDir)$(PixmanDllPrefix)$(ProjectName)$(PixmanDllSuffix).dll</OutputFile>
       <ModuleDefinitionFile>$(IntDir)$(ProjectName).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ImportLibrary>$(TargetDir)$(ProjectName)-$(ApiVersion).lib</ImportLibrary>
@@ -150,7 +150,7 @@
       <Command>$(GenPixmanDef)</Command>
     </PreLinkEvent>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName)-$(ApiVersion).dll</OutputFile>
+      <OutputFile>$(OutDir)$(PixmanDllPrefix)$(ProjectName)$(PixmanDllSuffix).dll</OutputFile>
       <ModuleDefinitionFile>$(IntDir)$(ProjectName).def</ModuleDefinitionFile>
       <ImportLibrary>$(TargetDir)$(ProjectName)-$(ApiVersion).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -178,7 +178,7 @@
       <Command>$(GenPixmanDef)</Command>
     </PreLinkEvent>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName)-$(ApiVersion).dll</OutputFile>
+      <OutputFile>$(OutDir)$(PixmanDllPrefix)$(ProjectName)$(PixmanDllSuffix).dll</OutputFile>
       <ModuleDefinitionFile>$(IntDir)$(ProjectName).def</ModuleDefinitionFile>
       <ImportLibrary>$(TargetDir)$(ProjectName)-$(ApiVersion).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>

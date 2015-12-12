@@ -33,6 +33,10 @@ mkdir $(CopyDir)\lib
 copy $(SolutionDir)$(Configuration)\$(Platform)\bin\*-$(ApiVersion).lib $(CopyDir)\lib
 
 </PixmanDoInstall>
+  <PixmanLibtoolCompatibleDllPrefix>lib</PixmanLibtoolCompatibleDllPrefix>
+  <PixmanLibtoolCompatibleDllSuffix>-$(ApiVersion)-0</PixmanLibtoolCompatibleDllSuffix>
+  <PixmanDllPrefix>$(PixmanLibtoolCompatibleDllPrefix)</PixmanDllPrefix>
+  <PixmanDllSuffix>$(PixmanLibtoolCompatibleDllSuffix)</PixmanDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>pixmanprops</_PropertySheetDisplayName>
@@ -50,6 +54,12 @@ copy $(SolutionDir)$(Configuration)\$(Platform)\bin\*-$(ApiVersion).lib $(CopyDi
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <BuildMacro Include="PixmanDllPrefix">
+      <Value>$(PixmanDllPrefix)</Value>
+    </BuildMacro>
+    <BuildMacro Include="PixmanDllSuffix">
+      <Value>$(PixmanDllSuffix)</Value>
+    </BuildMacro>
     <BuildMacro Include="GenPixmanDef">
       <Value>$(GenPixmanDef)</Value>
     </BuildMacro>
