@@ -1,0 +1,14 @@
+diff --git a/gettext-runtime/intl/CMakeLists.txt b/gettext-runtime/intl/CMakeLists.txt
+index d0f04c6..6328eb6 100644
+--- a/gettext-runtime/intl/CMakeLists.txt
++++ b/gettext-runtime/intl/CMakeLists.txt
+@@ -56,7 +56,7 @@ add_definitions(-DIN_LIBINTL)
+ add_library(intl ${LIBRARY_TYPE} ${INTL_SRCS})
+ target_link_libraries(intl ${ICONV_LIBRARIES})
+ if(MSVC)
+-set_target_properties(intl PROPERTIES OUTPUT_NAME "libintl")
++set_target_properties(intl PROPERTIES OUTPUT_NAME "libintl-8")
+ endif(MSVC)
+ 
+ if(WINCE)
+
