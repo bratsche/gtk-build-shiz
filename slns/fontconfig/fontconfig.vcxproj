@@ -104,7 +104,7 @@
       <DisableSpecificWarnings>4244;4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libxml2.lib;freetype_d.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libxml2-2.lib;freetype_d.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
@@ -137,7 +137,7 @@
       <DisableSpecificWarnings>4244;4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libxml2.lib;freetype_d.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libxml2-2.lib;freetype_d.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
@@ -168,7 +168,7 @@
       <DisableSpecificWarnings>4244;4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libxml2.lib;iconv.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libxml2-2.lib;iconv.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>
@@ -201,7 +201,7 @@
       <DisableSpecificWarnings>4244;4819;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libxml2.lib;iconv.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libxml2-2.lib;iconv.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)libfontconfig-1.dll</OutputFile>
       <AdditionalLibraryDirectories>..\vs9\$(Platform)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>fontconfig.def</ModuleDefinitionFile>

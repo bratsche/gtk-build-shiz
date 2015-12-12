@@ -139,11 +139,11 @@ Target "libxml2" <| fun _ ->
   ) |> ignore
 
 
-  ["libxml2.dll"; "libxml2.pdb"; "runsuite.exe"; "runsuite.pdb"]
+  ["libxml2-2.dll"; "libxml2-2.pdb"; "runsuite.exe"; "runsuite.pdb"]
   |> List.map (fun x -> Path.Combine(checkoutDir, "win32", "vc12", "Release", x))
   |> CopyFiles (Path.Combine(installDir(), "bin"))
 
-  Path.Combine(checkoutDir, "win32", "vc12", "Release", "libxml2.lib") |> CopyFile (Path.Combine(installDir(), "lib"))
+  Path.Combine(checkoutDir, "win32", "vc12", "Release", "libxml2-2.lib") |> CopyFile (Path.Combine(installDir(), "lib"))
 
   (Directory.GetFiles(Path.Combine(checkoutDir, "include", "libxml"), "*.h") |> Array.toList) @ (["win32config.h"; "wsockcompat.h"] |> List.map (fun x -> Path.Combine(checkoutDir, "include", x)))
   |> CopyFiles (Path.Combine(installDir(), "include", "libxml"))
