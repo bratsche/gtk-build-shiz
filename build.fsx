@@ -5,9 +5,11 @@
 
 open System
 open System.IO
+open System.Text.RegularExpressions
 open Fake
 open Fake.FileUtils
 open Fake.FileHelper
+open Fake.StringHelper
 open Fake.Git
 open FSharp.Data
 
@@ -20,9 +22,14 @@ let buildDir () = Path.Combine(originDir, "build", "Win32")
 let binDir () = Path.Combine(installDir(), "bin")
 let libDir () = Path.Combine(installDir(), "lib")
 let patchDir () = Path.Combine(originDir, "patches")
+let srcDir () = Path.Combine(originDir, "src")
 
 // Some utility functions
 // ------------------------------------------------------
+let mingwify (str: string) =
+    str.Replace('\\', '/')
+    |> replaceFirst "C:" "/C"
+
 let sh command args =
   let exitCode = ProcessHelper.ExecProcess (fun info ->
     info.FileName <- command
@@ -38,8 +45,13 @@ let filenameFromUrl (url:string) =
     |> List.rev
     |> List.head
 
+let from (action: unit -> unit) (path: string) =
+    pushd path
+    action ()
+    popd()
+
 let extract (path:string) =
-  let file = Path.Combine("src", path)
+  let file = Path.Combine(srcDir(), path)
 
   Path.Combine("patches", "stack.props") |> CopyFile (buildDir())
 
@@ -49,9 +61,20 @@ let extract (path:string) =
   if not (Directory.Exists(path)) then
       printfn "extracting %s" file
 
-      sprintf "x %s -o.\\build\\win32" file
-      |> sh "C:\Program Files\7-Zip\7z.exe"
-      |> ignore
+      match file with
+      | x when Regex.Match(x, "\.7z$").Success ->
+          sprintf "x %s -o.\\build\\win32" file
+          |> sh "C:\Program Files\7-Zip\7z.exe"
+          |> ignore
+      | x when Regex.Match(x, "\.tar\.[gx]z$").Success ->
+          buildDir()
+          |> from (fun () ->
+              sprintf "xf %s" (mingwify(file))
+              |> sh "tar"
+              |> ignore
+          )
+      | _ ->
+        printfn "Unknown file type to extract for %s" file
 
 let install (path) =
     let inDi = new DirectoryInfo(Path.Combine(buildDir(), path))
@@ -59,11 +82,6 @@ let install (path) =
 
     printfn "Installing from %s to %s..." inDi.FullName outDi.FullName
     copyRecursive inDi outDi true
-
-let from (action: unit -> unit) (path: string) =
-    pushd path
-    action ()
-    popd()
 
 let patch filename =
   sprintf "-p1 -i %s" (Path.Combine(patchDir(), filename))
@@ -339,14 +357,15 @@ Target "pixman" <| fun _ ->
   install "pixman-0.32.6-rel" |> ignore
 
 Target "cairo" <| fun _ ->
-  "cairo-1.14.0.7z" |> extract
+  "cairo-1.14.6.tar.xz" |> extract
 
-  Path.Combine(buildDir(), "cairo-1.14.0")
+  Path.Combine(buildDir(), "cairo-1.14.6")
   |> from (fun () ->
-    patch "cairo\\cairo-array-vs-struct-initializer.patch"
+    //patch "cairo\\cairo-array-vs-struct-initializer.patch"
+    printf "No patches to apply"
   )
 
-  let slnDir = Path.Combine(buildDir(), "cairo-1.14.0", "msvc")
+  let slnDir = Path.Combine(buildDir(), "cairo-1.14.6", "msvc")
   CopyDir (slnDir) (Path.Combine("slns", "cairo", "msvc")) (fun _ -> true)
 
   Path.Combine(slnDir, "vc12", "cairo.sln") |> MSBuildHelper.build (fun parameters ->
