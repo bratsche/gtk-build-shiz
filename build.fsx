@@ -109,7 +109,9 @@ Target "prep" <| fun _ ->
     ensureDirectory (libDir())
 
 Target "freetype" <| fun _ ->
-  "freetype-2.5.5.7z" |> extract
+  "http://download.savannah.gnu.org/releases/freetype/freetype-2.5.5.tar.bz2"
+  |> download
+  |> extract
 
   let srcvcpath = Path.Combine("slns", "freetype", "builds", "windows", "vc2013")
   let vcpath = Path.Combine(buildDir(), "freetype-2.5.5", "builds", "windows", "vc2013")
