@@ -137,11 +137,8 @@ Target "freetype" <| fun _ ->
 
   CopyFiles includeDir includeFiles
 
-  // XXX Not sure why this doesn't work.
-  //CopyDir (Path.Combine(includeDir, "config")) (Path.Combine(includeSrc, "config"))
   ensureDirectory (Path.Combine(includeDir, "config"))
   CopyFiles (Path.Combine(includeDir, "config")) (Directory.GetFiles(Path.Combine(includeSrc, "config"), "*.*", SearchOption.AllDirectories))
-  // </XXX>
 
   [ Path.Combine(sourceDir, "objs", "vc2013", "Win32", "freetype.lib")]
   |> Copy (libDir())
