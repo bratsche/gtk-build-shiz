@@ -224,7 +224,6 @@ Target "glib" <| fun _ ->
   |> download
   |> extract
 
-
   Path.Combine(buildDir(), "glib-2.42.1")
   |> from (fun () ->
     patch "glib\\glib-if_nametoindex.patch"
@@ -270,7 +269,9 @@ Target "harfbuzz" <| fun _ ->
   |> CopyFile (Path.Combine(installDir(), "lib"))
 
 Target "atk" <| fun _ ->
-  "atk-2.14.0.7z" |> extract
+  "http://ftp.gnome.org/pub/gnome/sources/atk/2.14/atk-2.14.0.tar.xz"
+  |> download
+  |> extract
 
   Directory.GetFiles(Path.Combine("slns", "atk", "build", "win32", "vs12"), "*.*")
   |> CopyFiles (Path.Combine(buildDir(), "atk-2.14.0", "build", "win32", "vs12"))
