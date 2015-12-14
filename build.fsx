@@ -401,7 +401,9 @@ Target "cairo" <| fun _ ->
   install "cairo-1.14.0-rel" |> ignore
 
 Target "pango" <| fun _ ->
-  "pango-1.36.8.7z" |> extract
+  "http://ftp.gnome.org/pub/gnome/sources/pango/1.36/pango-1.36.8.tar.xz"
+  |> download
+  |> extract
 
   Path.Combine(buildDir(), "pango-1.36.8")
   |> from (fun () ->
