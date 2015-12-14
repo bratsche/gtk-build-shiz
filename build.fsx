@@ -220,7 +220,10 @@ Target "gettext-runtime" <| fun _ ->
   |> ignore
 
 Target "glib" <| fun _ ->
-  "glib-2.42.1.7z" |> extract
+  "http://ftp.gnome.org/pub/gnome/sources/glib/2.42/glib-2.42.1.tar.xz"
+  |> download
+  |> extract
+
 
   Path.Combine(buildDir(), "glib-2.42.1")
   |> from (fun () ->
