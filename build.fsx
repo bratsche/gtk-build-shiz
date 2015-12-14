@@ -77,7 +77,7 @@ let extract (path:string) =
           sprintf "x %s -o.\\build\\win32" file
           |> sh "C:\Program Files\7-Zip\7z.exe"
           |> ignore
-      | x when Regex.Match(x, "\.tar\.[gx]z$").Success ->
+      | x when Regex.Match(x, "\.tar\.[gx]z$").Success || Regex.Match(x, "\.tar\.bz2$").Success ->
           buildDir()
           |> from (fun () ->
               sprintf "xf %s" (mingwify(file))
@@ -245,7 +245,10 @@ Target "glib" <| fun _ ->
   install "glib-rel" |> ignore
 
 Target "harfbuzz" <| fun _ ->
-  "harfbuzz-0.9.37.7z" |> extract
+  "http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-0.9.37.tar.bz2"
+  |> download
+  |> extract
+
   CopyDir (Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
   [Path.Combine("slns", "harfbuzz", "src", "hb-gobject-enums.h"); Path.Combine("slns", "harfbuzz", "src", "rllist.txt")]
   |> CopyFiles (Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"))
