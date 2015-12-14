@@ -5,6 +5,7 @@
 
 open System
 open System.IO
+open System.Net
 open System.Text.RegularExpressions
 open Fake
 open Fake.FileUtils
@@ -49,6 +50,16 @@ let from (action: unit -> unit) (path: string) =
     pushd path
     action ()
     popd()
+
+let download (url: string) =
+    let client = new WebClient()
+    let file = Path.Combine(srcDir(), Path.GetFileName url)
+
+    if not (File.Exists (file)) then
+        printfn "Downloading %s" file
+        client.DownloadFile(url, file)
+
+    file
 
 let extract (path:string) =
   let file = Path.Combine(srcDir(), path)
@@ -357,6 +368,7 @@ Target "pixman" <| fun _ ->
   install "pixman-0.32.6-rel" |> ignore
 
 Target "cairo" <| fun _ ->
+  download "http://cairographics.org/releases/cairo-1.14.6.tar.xz"
   "cairo-1.14.6.tar.xz" |> extract
 
   Path.Combine(buildDir(), "cairo-1.14.6")
