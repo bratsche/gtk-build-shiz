@@ -341,14 +341,16 @@ Target "fontconfig" <| fun _ ->
 
 
 Target "pixman" <| fun _ ->
-  "pixman-0.32.6.7z" |> extract
+  "http://cairographics.org/releases/pixman-0.32.8.tar.gz"
+  |> download
+  |> extract
 
-  CopyDir (Path.Combine(buildDir(), "pixman-0.32.6", "build")) (Path.Combine("slns", "pixman", "build")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "pixman-0.32.8", "build")) (Path.Combine("slns", "pixman", "build")) (fun _ -> true)
 
   Path.Combine("slns", "pixman", "pixman.symbols")
-  |> CopyFile (Path.Combine(buildDir(), "pixman-0.32.6", "pixman"))
+  |> CopyFile (Path.Combine(buildDir(), "pixman-0.32.8", "pixman"))
 
-  let slnDir = Path.Combine(buildDir(), "pixman-0.32.6", "build", "win32", "vc12")
+  let slnDir = Path.Combine(buildDir(), "pixman-0.32.8", "build", "win32", "vc12")
   Path.Combine(slnDir, "pixman.vcxproj") |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = ["Configuration", "Release"
@@ -368,8 +370,9 @@ Target "pixman" <| fun _ ->
   install "pixman-0.32.6-rel" |> ignore
 
 Target "cairo" <| fun _ ->
-  download "http://cairographics.org/releases/cairo-1.14.6.tar.xz"
-  "cairo-1.14.6.tar.xz" |> extract
+  "http://cairographics.org/releases/cairo-1.14.6.tar.xz"
+  |> download
+  |> extract
 
   Path.Combine(buildDir(), "cairo-1.14.6")
   |> from (fun () ->
