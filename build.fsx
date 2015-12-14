@@ -288,7 +288,10 @@ Target "atk" <| fun _ ->
   install "atk-2.14.0-rel" |> ignore
 
 Target "gdk-pixbuf" <| fun _ ->
-  "gdk-pixbuf-2.30.8.7z" |> extract
+  "http://ftp.gnome.org/pub/gnome/sources/gdk-pixbuf/2.30/gdk-pixbuf-2.30.8.tar.xz"
+  |> download
+  |> extract
+
 
   let slnDir = Path.Combine(buildDir(), "gdk-pixbuf-2.30.8", "build", "win32", "vc12")
   CopyDir (slnDir) (Path.Combine("slns", "gdk-pixbuf", "build", "win32", "vc12")) (fun _ -> true)
