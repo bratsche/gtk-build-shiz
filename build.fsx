@@ -292,7 +292,6 @@ Target "gdk-pixbuf" <| fun _ ->
   |> download
   |> extract
 
-
   let slnDir = Path.Combine(buildDir(), "gdk-pixbuf-2.30.8", "build", "win32", "vc12")
   CopyDir (slnDir) (Path.Combine("slns", "gdk-pixbuf", "build", "win32", "vc12")) (fun _ -> true)
 
@@ -306,7 +305,9 @@ Target "gdk-pixbuf" <| fun _ ->
   install "gdk-pixbuf-2.30.8-rel" |> ignore
 
 Target "fontconfig" <| fun _ ->
-  "fontconfig-2.8.0.7z" |> extract
+  "http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.8.0.tar.gz"
+  |> download
+  |> extract
 
   Path.Combine(buildDir(), "fontconfig-2.8.0")
   |> from (fun () ->
