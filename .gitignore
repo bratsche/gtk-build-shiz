@@ -1,3 +1,4 @@
 src/*.xz
 src/*.7z
 src/*.gz
+*~
