@@ -1,4 +1,5 @@
 src/*.xz
 src/*.7z
 src/*.gz
+src/*.bz2
 *~
