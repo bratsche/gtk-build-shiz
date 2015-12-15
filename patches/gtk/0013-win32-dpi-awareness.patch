@@ -1,0 +1,59 @@
+commit 15ebee4ab23da732257944f300b814af5d5f9daf
+Author: Cody Russell <cody@jhu.edu>
+Date:   Mon Feb 10 10:36:38 2014 -0600
+
+    Win32 DPI awareness
+
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index f5e423f..d03d6c2 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -30,11 +30,13 @@
+ #undef HAVE_MONITOR_INFO
+ #endif
+ 
++typedef HRESULT(WINAPI *t_SetProcessDpiAwareness)(PROCESS_DPI_AWARENESS value);
+ typedef HRESULT(WINAPI *t_GetDpiForMonitor)(HMONITOR          monitor,
+ 					    MONITOR_DPI_TYPE  dpi_type,
+ 					    UINT             *dpi_x,
+ 					    UINT             *dpi_y);
+ 
++static t_SetProcessDpiAwareness p_SetProcessDpiAwareness;
+ static t_GetDpiForMonitor p_GetDpiForMonitor;
+ 
+ void
+@@ -146,6 +148,16 @@ _gdk_monitor_init (void)
+ 
+   _gdk_num_monitors = 0;
+ 
++  if (!p_SetProcessDpiAwareness)
++    {
++      ((p_SetProcessDpiAwareness = (t_SetProcessDpiAwareness)GetProcAddress(GetModuleHandleA("user32.dll"), "SetProcessDpiAwarenessInternal")));
++    }
++
++  if (p_SetProcessDpiAwareness)
++    {
++      p_SetProcessDpiAwareness (PROCESS_SYSTEM_DPI_AWARE);
++    }
++
+   if (!p_GetDpiForMonitor)
+     {
+       ((p_GetDpiForMonitor = (t_GetDpiForMonitor)GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForMonitorInternal")));
+diff --git a/gdk/win32/gdkprivate-win32.h b/gdk/win32/gdkprivate-win32.h
+index 44e341b..f243f6d 100644
+--- a/gdk/win32/gdkprivate-win32.h
++++ b/gdk/win32/gdkprivate-win32.h
+@@ -106,6 +106,13 @@ typedef enum {
+ } MONITOR_DPI_TYPE;
+ #endif
+ 
++#ifndef PROCESS_DPI_AWARENESS
++typedef enum {
++  PROCESS_DPI_UNAWARE           = 0,
++  PROCESS_SYSTEM_DPI_AWARE      = 1,
++  PROCESS_PER_MONITOR_DPI_AWARE = 2
++} PROCESS_DPI_AWARENESS;
++#endif
+ 
+ /* Define some combinations of GdkDebugFlags */
+ #define GDK_DEBUG_EVENTS_OR_COLORMAP (GDK_DEBUG_EVENTS|GDK_DEBUG_COLORMAP)

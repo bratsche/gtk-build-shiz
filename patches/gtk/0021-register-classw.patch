@@ -1,0 +1,13 @@
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index cef6072..3a7d872 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -456,7 +456,7 @@ _gdk_win32_register_clipboard_notification (void)
+   wclass.lpfnWndProc   = _clipboard_window_procedure;
+   wclass.hInstance     = _gdk_app_hmodule;
+ 
+-  klass = RegisterClass (&wclass);
++  klass = RegisterClassW (&wclass);
+   if (!klass)
+     return NULL;
+ 

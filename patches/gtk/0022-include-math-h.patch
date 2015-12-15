@@ -1,0 +1,12 @@
+diff --git a/gtk/gtkiconfactory.c b/gtk/gtkiconfactory.c
+index 21aba22..e081183 100644
+--- a/gtk/gtkiconfactory.c
++++ b/gtk/gtkiconfactory.c
+@@ -27,6 +27,7 @@
+ #include "config.h"
+ #include <stdlib.h>
+ #include <errno.h>
++#include <math.h>
+ #include <string.h>
+ #include "gtkiconfactory.h"
+ #include "gtkiconcache.h"

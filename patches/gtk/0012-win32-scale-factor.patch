@@ -1,0 +1,207 @@
+commit d03da990edd0986f7a4e9851295c4cf587c1704d
+Author: Cody Russell <cody@jhu.edu>
+Date:   Mon Feb 10 00:58:59 2014 -0600
+
+    win31-scale-factor
+
+diff --git a/gdk/gdk.def b/gdk/gdk.def
+index a32eea5..bb5375d 100644
+--- a/gdk/gdk.def
++++ b/gdk/gdk.def
+@@ -395,6 +395,7 @@ EXPORTS
+ 	gdk_window_get_modal_hint
+ 	gdk_window_get_origin
+ 	gdk_window_get_root_coords
++	gdk_window_get_scale_factor
+ 	gdk_window_set_background
+ 	gdk_window_set_back_pixmap
+ 	gdk_window_set_cursor
+@@ -668,6 +669,7 @@ EXPORTS
+ 	gdk_screen_get_type 
+ 	gdk_screen_get_monitor_at_point
+ 	gdk_screen_get_monitor_at_window
++	gdk_screen_get_monitor_scale_factor
+ 	gdk_screen_set_font_options
+ 	gdk_screen_get_font_options
+ 	gdk_screen_set_resolution
+diff --git a/gdk/gdk.symbols b/gdk/gdk.symbols
+index d4f2072..fb73bb7 100644
+--- a/gdk/gdk.symbols
++++ b/gdk/gdk.symbols
+@@ -707,6 +707,7 @@ gdk_window_get_geometry
+ gdk_window_get_modal_hint
+ gdk_window_get_origin
+ gdk_window_get_root_coords
++gdk_window_get_scale_factor
+ gdk_window_set_background
+ gdk_window_set_back_pixmap
+ gdk_window_set_cursor
+@@ -1115,6 +1116,7 @@ gdk_draw_rgb_image_dithalign
+ gdk_screen_get_type G_GNUC_CONST
+ gdk_screen_get_monitor_at_point
+ gdk_screen_get_monitor_at_window
++gdk_screen_get_monitor_scale_factor
+ gdk_screen_set_font_options
+ gdk_screen_get_font_options
+ gdk_screen_set_resolution
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index a91615a..f5e423f 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -30,6 +30,13 @@
+ #undef HAVE_MONITOR_INFO
+ #endif
+ 
++typedef HRESULT(WINAPI *t_GetDpiForMonitor)(HMONITOR          monitor,
++					    MONITOR_DPI_TYPE  dpi_type,
++					    UINT             *dpi_x,
++					    UINT             *dpi_y);
++
++static t_GetDpiForMonitor p_GetDpiForMonitor;
++
+ void
+ _gdk_windowing_set_default_display (GdkDisplay *display)
+ {
+@@ -103,6 +110,17 @@ enum_monitor (HMONITOR hmonitor,
+   monitor->rect.width = monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+   monitor->rect.height = monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+ 
++  if (p_GetDpiForMonitor != NULL)
++    {
++      guint dpi_x, dpi_y;
++      p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
++      monitor->scale_factor = ((gdouble)dpi_x) / 96.0f;
++    }
++  else
++    {
++      monitor->scale_factor = 1.0f;
++    }
++
+   if (monitor_info.dwFlags & MONITORINFOF_PRIMARY &&
+       *index != 0)
+     {
+@@ -128,6 +146,11 @@ _gdk_monitor_init (void)
+ 
+   _gdk_num_monitors = 0;
+ 
++  if (!p_GetDpiForMonitor)
++    {
++      ((p_GetDpiForMonitor = (t_GetDpiForMonitor)GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForMonitorInternal")));
++    }
++
+   EnumDisplayMonitors (NULL, NULL, count_monitor, (LPARAM) &_gdk_num_monitors);
+ 
+   _gdk_monitors = g_renew (GdkWin32Monitor, _gdk_monitors, _gdk_num_monitors);
+diff --git a/gdk/win32/gdkprivate-win32.h b/gdk/win32/gdkprivate-win32.h
+index 7899533..44e341b 100644
+--- a/gdk/win32/gdkprivate-win32.h
++++ b/gdk/win32/gdkprivate-win32.h
+@@ -97,6 +97,15 @@
+ #define CF_DIBV5 17
+ #endif
+ 
++#ifndef MONITOR_DPI_TYPE
++typedef enum {
++  MDT_EFFECTIVE_DPI = 0,
++  MDT_ANGULAR_DPI   = 1,
++  MDT_RAW_DPI       = 2,
++  MDT_DEFAULT = MDT_EFFECTIVE_DPI
++} MONITOR_DPI_TYPE;
++#endif
++
+ 
+ /* Define some combinations of GdkDebugFlags */
+ #define GDK_DEBUG_EVENTS_OR_COLORMAP (GDK_DEBUG_EVENTS|GDK_DEBUG_COLORMAP)
+@@ -382,6 +391,7 @@ struct _GdkWin32Monitor
+   gchar *name;
+   gint width_mm, height_mm;
+   GdkRectangle rect;
++  gdouble scale_factor;
+ };
+ extern GdkWin32Monitor  *_gdk_monitors;
+ 
+diff --git a/gdk/win32/gdkscreen-win32.c b/gdk/win32/gdkscreen-win32.c
+index e9051b5..f2d7074 100644
+--- a/gdk/win32/gdkscreen-win32.c
++++ b/gdk/win32/gdkscreen-win32.c
+@@ -96,6 +96,17 @@ gdk_screen_get_monitor_height_mm (GdkScreen *screen,
+   return _gdk_monitors[num_monitor].height_mm;
+ }
+ 
++gdouble
++gdk_screen_get_monitor_scale_factor (GdkScreen *screen,
++				     gint       num_monitor)
++{
++  g_return_val_if_fail (GDK_IS_SCREEN (screen), 1.0);
++  g_return_val_if_fail (num_monitor < gdk_screen_get_n_monitors (screen), 1.0);
++  g_return_val_if_fail (num_monitor >= 0, 1.0);
++
++  return _gdk_monitors[num_monitor].scale_factor;
++}
++
+ gchar *
+ gdk_screen_get_monitor_plug_name (GdkScreen *screen,
+                                   gint       num_monitor)
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index 9740ef8..f618571 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -59,6 +59,13 @@ struct _FullscreenInfo
+   LONG  style;
+ };
+ 
++typedef HRESULT(WINAPI *t_GetDpiForMonitor)(HMONITOR          monitor,
++                                            MONITOR_DPI_TYPE  dpi_type,
++                                            UINT             *dpi_x,
++                                            UINT             *dpi_y);
++
++static t_GetDpiForMonitor p_GetDpiForMonitor;
++
+ static void     update_style_bits         (GdkWindow         *window);
+ static gboolean _gdk_window_get_functions (GdkWindow         *window,
+                                            GdkWMFunction     *functions);
+@@ -315,6 +322,11 @@ _gdk_windowing_window_init (GdkScreen *screen)
+ 
+   gdk_win32_handle_table_insert ((HANDLE *) &draw_impl->handle, _gdk_root);
+ 
++  if (!p_GetDpiForMonitor)
++    {
++      ((p_GetDpiForMonitor = (t_GetDpiForMonitor)GetProcAddress(GetModuleHandleA("user32.dll"), "GetDpiForMonitorInternal")));
++    }
++
+   GDK_NOTE (MISC, g_print ("_gdk_root=%p\n", GDK_WINDOW_HWND (_gdk_root)));
+ }
+ 
+@@ -4081,6 +4093,24 @@ _gdk_windowing_after_process_all_updates (void)
+ {
+ }
+ 
++static gdouble
++gdk_win32_window_get_scale_factor (GdkWindow *window)
++{
++  if (GDK_WINDOW_DESTROYED (window))
++    return 1.0;
++
++  if (p_GetDpiForMonitor != NULL)
++    {
++      guint dpi_x, dpi_y;
++      HMONITOR hmonitor = MonitorFromWindow (GDK_WINDOW_HWND (window), MONITOR_DEFAULTTONEAREST);
++      p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
++      return ((gdouble)dpi_x) / 96.0f;
++    }
++
++  return 1.0;
++}
++
++
+ static void
+ gdk_window_impl_iface_init (GdkWindowImplIface *iface)
+ {
+@@ -4113,6 +4143,7 @@ gdk_window_impl_iface_init (GdkWindowImplIface *iface)
+   iface->input_window_crossing = _gdk_input_crossing_event;
+   /* CHECK: we may not need set_pixmap anymore if setting FALSE */
+   iface->supports_native_bg = TRUE;
++  iface->get_scale_factor = gdk_win32_window_get_scale_factor;
+ }
+ 
+ gboolean

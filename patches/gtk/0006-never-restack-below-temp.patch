@@ -1,0 +1,33 @@
+From b4299144178051ed61d82adff5c7ac7549df85ba Mon Sep 17 00:00:00 2001
+From: Aleksander Morgado <aleksander@lanedo.com>
+Date: Tue, 5 Mar 2013 10:21:33 +0100
+Subject: [PATCH] win32: when activating app, never restack below a
+ GDK_WINDOW_TEMP
+
+When the application gets activated, avoid to restack windows below a
+GDK_WINDOW_TEMP, as that will implicitly move the window to the TOPMOST group.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=695200
+---
+ gdk/win32/gdkevents-win32.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/gdk/win32/gdkevents-win32.c b/gdk/win32/gdkevents-win32.c
+index 1cde4fc..0b7090a 100644
+--- a/gdk/win32/gdkevents-win32.c
++++ b/gdk/win32/gdkevents-win32.c
+@@ -2017,7 +2017,10 @@ ensure_stacking_on_activate_app (MSG       *msg,
+ 	      if (GDK_WINDOW_IS_MAPPED (rover_gdkw) &&
+ 		  (rover_impl->type_hint == GDK_WINDOW_TYPE_HINT_UTILITY ||
+ 		   rover_impl->type_hint == GDK_WINDOW_TYPE_HINT_DIALOG ||
+-		   rover_impl->transient_owner != NULL))
++		   rover_impl->transient_owner != NULL) &&
++		  /* Do not restack below a TEMP window, or it will move the
++		   * window to the TOPMOST group */
++		  GDK_WINDOW_TYPE (rover_gdkw) != GDK_WINDOW_TEMP)
+ 		{
+ 		  GDK_NOTE (EVENTS, g_print (" restacking: %p", rover));
+ 		  SetWindowPos (msg->hwnd, rover, 0, 0, 0, 0,
+-- 
+1.8.1.2
+

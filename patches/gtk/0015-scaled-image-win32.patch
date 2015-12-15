@@ -1,0 +1,96 @@
+diff --git a/gtk/gtkentry.c b/gtk/gtkentry.c
+index dfe0a9e..1fd7b48 100644
+--- a/gtk/gtkentry.c
++++ b/gtk/gtkentry.c
+@@ -2376,7 +2376,7 @@ get_icon_width (GtkEntry             *entry,
+   gtk_icon_size_lookup_for_settings (settings, GTK_ICON_SIZE_MENU,
+                                      &menu_icon_width, NULL);
+ 
+-  return MAX (gdk_pixbuf_get_width (icon_info->pixbuf) /
++  return MAX (gdk_pixbuf_get_width (icon_info->pixbuf) *
+               gtk_widget_get_scale_factor (GTK_WIDGET (entry)),
+               menu_icon_width);
+ }
+@@ -3244,8 +3244,8 @@ draw_icon (GtkWidget            *widget,
+     return;
+ 
+   window_scale = gdk_window_get_scale_factor (widget->window);
+-  width = gdk_window_get_width (icon_info->window) / window_scale;
+-  height = gdk_window_get_height (icon_info->window) / window_scale;
++  width = gdk_window_get_width (icon_info->window);
++  height = gdk_window_get_height (icon_info->window);
+ 
+   /* size_allocate hasn't been called yet. These are the default values.
+    */
+@@ -3294,7 +3294,8 @@ draw_icon (GtkWidget            *widget,
+     }
+ 
+   cr = gdk_cairo_create (icon_info->window);
+-  gdk_cairo_set_source_pixbuf (cr, pixbuf, x, y);
++  cairo_scale (cr, window_scale, window_scale);
++  gdk_cairo_set_source_pixbuf (cr, pixbuf, x / window_scale, y / window_scale);
+   cairo_paint (cr);
+   cairo_destroy (cr);
+ 
+@@ -6646,7 +6647,7 @@ gtk_entry_ensure_pixbuf (GtkEntry             *entry,
+       g_assert_not_reached ();
+       break;
+     }
+-    
++
+   if (icon_info->pixbuf != NULL && icon_info->window != NULL)
+     gdk_window_show_unraised (icon_info->window);
+ }
+diff --git a/gtk/gtkiconfactory.c b/gtk/gtkiconfactory.c
+index 291c05e..6d3af0a 100644
+--- a/gtk/gtkiconfactory.c
++++ b/gtk/gtkiconfactory.c
+@@ -888,7 +888,7 @@ gtk_icon_size_lookup_for_settings (GtkSettings *settings,
+ {
+   g_return_val_if_fail (GTK_IS_SETTINGS (settings), FALSE);
+ 
+-  return icon_size_lookup_intern (settings, size, 1, width, height);
++  return icon_size_lookup_intern (settings, size, gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0), width, height);
+ }
+ 
+ /**
+diff --git a/gtk/gtkimage.c b/gtk/gtkimage.c
+index b492d73..29ff7d0 100644
+--- a/gtk/gtkimage.c
++++ b/gtk/gtkimage.c
+@@ -1851,7 +1851,7 @@ gtk_image_expose (GtkWidget      *widget,
+       GdkBitmap *mask;
+       GdkPixbuf *pixbuf;
+       gboolean needs_state_transform;
+-      gdouble render_scale = 1.0;
++      gdouble render_scale = 1.0; // gtk_widget_get_scale_factor (widget);
+ 
+       image = GTK_IMAGE (widget);
+       misc = GTK_MISC (widget);
+@@ -2108,10 +2108,10 @@ gtk_image_expose (GtkWidget      *widget,
+                       gdk_cairo_region (cr, event->region);
+                       cairo_clip (cr);
+ 
+-                      cairo_scale (cr, 1.0 / render_scale, 1.0 / render_scale);
++                      cairo_scale (cr, render_scale, render_scale);
+                       gdk_cairo_set_source_pixbuf (cr, pixbuf,
+-                                                   image_bound.x * render_scale,
+-                                                   image_bound.y * render_scale);
++                                                   image_bound.x / render_scale,
++                                                   image_bound.y / render_scale);
+ 
+                       cairo_paint (cr);
+                       cairo_destroy (cr);
+@@ -2422,9 +2422,10 @@ gtk_image_update_size (GtkImage *image,
+                        gint      image_height)
+ {
+   GtkWidget *widget = GTK_WIDGET (image);
++  gdouble scale = gtk_widget_get_scale_factor (widget);
+ 
+-  widget->requisition.width = image_width + GTK_MISC (image)->xpad * 2;
+-  widget->requisition.height = image_height + GTK_MISC (image)->ypad * 2;
++  widget->requisition.width = image_width * scale + GTK_MISC (image)->xpad * 2;
++  widget->requisition.height = image_height * scale + GTK_MISC (image)->ypad * 2;
+ 
+   if (gtk_widget_get_visible (widget))
+     gtk_widget_queue_resize (widget);

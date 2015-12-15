@@ -1,0 +1,22 @@
+diff --git a/gtk/gtkcombobox.c b/gtk/gtkcombobox.c
+index bd83a1e..144edad 100644
+--- a/gtk/gtkcombobox.c
++++ b/gtk/gtkcombobox.c
+@@ -1252,6 +1252,7 @@ gtk_combo_box_check_appearance (GtkComboBox *combo_box)
+ {
+   GtkComboBoxPrivate *priv = combo_box->priv;
+   gboolean appears_as_list;
++  GtkWidget *parent = gtk_widget_get_parent (combo_box);
+ 
+   /* if wrap_width > 0, then we are in grid-mode and forced to use
+    * unix style
+@@ -1263,6 +1264,9 @@ gtk_combo_box_check_appearance (GtkComboBox *combo_box)
+ 			  "appears-as-list", &appears_as_list,
+ 			  NULL);
+ 
++  if (parent && GTK_IS_TREE_VIEW (parent))
++    appears_as_list = FALSE;
++
+   if (appears_as_list)
+     {
+       /* Destroy all the menu mode widgets, if they exist. */

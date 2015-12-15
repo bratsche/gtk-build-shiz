@@ -1,0 +1,20 @@
+diff --git a/modules/input/gtkimcontextime.c b/modules/input/gtkimcontextime.c
+index 9cfb5f6..aba1c1c 100644
+--- a/modules/input/gtkimcontextime.c
++++ b/modules/input/gtkimcontextime.c
+@@ -312,13 +312,13 @@ _gtk_im_context_ime_dead_key_unichar (guint    keyval,
+       case GDK_dead_##keysym: return (spacing) ? spacing_unicode : unicode;
+ 
+       CASE (grave, 0x0300, 0x0060);
+-      CASE (acute, 0x0301, 0x00b4);
++      CASE (acute, 0x0301, 0x27); // 0x00b4
+       CASE (circumflex, 0x0302, 0x005e);
+       CASE (tilde, 0x0303, 0x007e);	/* Also used with perispomeni, 0x342. */
+       CASE (macron, 0x0304, 0x00af);
+       CASE (breve, 0x0306, 0x02d8);
+       CASE (abovedot, 0x0307, 0x02d9);
+-      CASE (diaeresis, 0x0308, 0x00a8);
++      CASE (diaeresis, 0x0308, 0x22);
+       CASE (hook, 0x0309, 0);
+       CASE (abovering, 0x030A, 0x02da);
+       CASE (doubleacute, 0x030B, 0x2dd);

@@ -1,0 +1,346 @@
+diff --git a/gdk/win32/gdkevents-win32.c b/gdk/win32/gdkevents-win32.c
+index 713c8b8..043a86d 100644
+--- a/gdk/win32/gdkevents-win32.c
++++ b/gdk/win32/gdkevents-win32.c
+@@ -660,6 +660,17 @@ build_key_event_state (GdkEvent *event,
+       event->key.group = 1;
+       event->key.state |= GDK_MOD2_MASK;
+       if (key_state[VK_RCONTROL] & 0x80)
++        event->key.state |= GDK_CONTROL_MASK;
++      if (key_state[VK_LMENU] & 0x80)
++        event->key.state |= GDK_MOD1_MASK;
++    }
++  else if (_gdk_keyboard_has_altgr &&
++      (((key_state[VK_LCONTROL] & 0x80) && (key_state[VK_LMENU] & 0x80)) ||
++       ((key_state[VK_RCONTROL] & 0x80) && (key_state[VK_RMENU] & 0x80))))
++    {
++      event->key.group = 1;
++      event->key.state |= GDK_MOD2_MASK;
++      if (key_state[VK_RCONTROL] & 0x80)
+ 	event->key.state |= GDK_CONTROL_MASK;
+       if (key_state[VK_LMENU] & 0x80)
+ 	event->key.state |= GDK_MOD1_MASK;
+@@ -1977,6 +1988,123 @@ ensure_stacking_on_activate_app (MSG       *msg,
+     }
+ }
+ 
++static gboolean
++wm_char_wparam_needs_translation (WPARAM wParam)
++{
++  switch (wParam)
++    {
++    case VK_SHIFT:
++    case VK_RETURN:
++    case VK_TAB:
++    case VK_BACK:
++      return TRUE;
++
++    default:
++      return FALSE;
++    }
++}
++
++static void
++emit_gdk_key_event (MSG                *msg,
++		    gint                gdk_evt_type,
++		    guint16             hardware_keycode,
++		    DWORD               time,
++		    GdkWindow          *window,
++		    GdkKeyboardGrabInfo keyboard_grab,
++		    gboolean            skip_modifiers)
++{
++  GdkEvent *event = NULL;
++  wchar_t wbuf[100];
++  BYTE key_state[256];
++
++  /* Ignore key messages intended for the IME */
++  if (in_ime_composition || msg->wParam == VK_PROCESSKEY)
++    return;
++
++  if (!propagate (&window,
++		  msg,
++		  keyboard_grab.window,
++		  keyboard_grab.owner_events,
++		  GDK_ALL_EVENTS_MASK,
++		  doesnt_want_key))
++    return;
++
++  if (GDK_WINDOW_DESTROYED (window))
++    return;
++
++  event = gdk_event_new (gdk_evt_type);
++  event->key.window = window;
++  event->key.time = _gdk_win32_get_next_tick (time);
++  event->key.keyval = GDK_KEY_VoidSymbol;
++  event->key.string = NULL;
++  event->key.length = 0;
++  event->key.hardware_keycode = msg->wParam;
++
++  if (HIWORD (msg->lParam) & KF_EXTENDED)
++    {
++      switch (msg->wParam)
++	{
++	case VK_CONTROL:
++	  event->key.hardware_keycode = VK_RCONTROL;
++	  break;
++
++	case VK_SHIFT:
++	  event->key.hardware_keycode = VK_RSHIFT;
++	  break;
++
++	case VK_MENU:
++	  event->key.hardware_keycode = VK_RMENU;
++	  break;
++
++	default:
++	  break;
++	}
++    }
++  else if (msg->wParam == VK_SHIFT && LOBYTE (HIWORD (msg->lParam)) == _scancode_rshift)
++    {
++      event->key.hardware_keycode = VK_RSHIFT;
++    }
++
++  API_CALL (GetKeyboardState, (key_state));
++
++  build_key_event_state (event, key_state);
++
++  if (msg->message == WM_CHAR && !wm_char_wparam_needs_translation (msg->wParam))
++    {
++      event->key.keyval = msg->wParam;
++      event->key.hardware_keycode = 0;
++    }
++  else
++    {
++      if (msg->wParam == VK_PACKET && ToUnicode (VK_PACKET, HIWORD (msg->lParam), key_state, wbuf, 1, 0) == 1)
++	{
++	  event->key.keyval = gdk_unicode_to_keyval (wbuf[0]);
++	}
++      else
++	{
++	  gdk_keymap_translate_keyboard_state (NULL,
++					       event->key.hardware_keycode,
++					       event->key.state,
++					       event->key.group,
++					       &event->key.keyval,
++					       NULL, NULL, NULL);
++	}
++    }
++
++  fill_key_event_string (event);
++
++  if (skip_modifiers)
++    event->key.state = 0;
++
++  /* Reset MOD1_MASK if it is the Alt key itself */
++  if (msg->wParam == VK_MENU)
++    {
++      event->key.state &= ~GDK_MOD1_MASK;
++    }
++
++  _gdk_win32_append_event (event);
++}
++
+ #define GDK_ANY_BUTTON_MASK (GDK_BUTTON1_MASK | \
+ 			     GDK_BUTTON2_MASK | \
+ 			     GDK_BUTTON3_MASK | \
+@@ -1996,6 +2124,8 @@ gdk_event_translate (MSG  *msg,
+   HIMC himc;
+   WINDOWPOS *windowpos;
+   gboolean ignore_leave;
++  MSG msg2;
++  gboolean msg2_res;
+ 
+   GdkEvent *event;
+ 
+@@ -2019,6 +2149,13 @@ gdk_event_translate (MSG  *msg,
+ 
+   int i;
+ 
++  /* Internal state about keyboard sequence */
++  static gboolean have_dead = FALSE;
++  static gboolean finished_dead = FALSE;
++  static gboolean in_dead_sequence = FALSE;
++  static gboolean awaiting_next_in_sequence = FALSE;
++  static guint16 last_hardware_keycode = 0;
++
+   if (_gdk_default_filters)
+     {
+       /* Apply global filters */
+@@ -2179,10 +2316,9 @@ gdk_event_translate (MSG  *msg,
+ 	   msg->wParam == VK_F4))
+ 	break;
+ 
+-      /* Jump to code in common with WM_KEYUP and WM_KEYDOWN */
+-      goto keyup_or_down;
++      emit_gdk_key_event (msg, (msg->message == WM_SYSKEYDOWN ? GDK_KEY_PRESS : GDK_KEY_RELEASE), 0, msg->time, window, _gdk_display->keyboard_grab, FALSE);
++      break;
+ 
+-    case WM_KEYUP:
+     case WM_KEYDOWN:
+       GDK_NOTE (EVENTS, 
+ 		g_print (" %s ch:%.02x %s",
+@@ -2190,77 +2326,94 @@ gdk_event_translate (MSG  *msg,
+ 			 (int) msg->wParam,
+ 			 decode_key_lparam (msg->lParam)));
+ 
+-    keyup_or_down:
++      if (PeekMessageW (&msg2, NULL, WM_DEADCHAR, WM_DEADCHAR, PM_NOREMOVE))
++	{
++	  have_dead = in_dead_sequence = TRUE;
++	  return_val = FALSE;
++	  break;
++	}
++      else if (have_dead && PeekMessageW (&msg2, NULL, WM_CHAR, WM_CHAR, PM_NOREMOVE))
++	{
++	  emit_gdk_key_event (&msg2, GDK_KEY_PRESS, msg2.wParam, last_hardware_keycode, window, _gdk_display->keyboard_grab, FALSE);
++	  break;
++	}
+ 
+-      /* Ignore key messages intended for the IME */
+-      if (msg->wParam == VK_PROCESSKEY ||
+-	  in_ime_composition)
+-	break;
++      last_hardware_keycode = msg->wParam;
+ 
+-      if (!propagate (&window, msg,
+-		      _gdk_display->keyboard_grab.window,
+-		      _gdk_display->keyboard_grab.owner_events,
+-		      GDK_ALL_EVENTS_MASK,
+-		      doesnt_want_key))
+-	break;
++      msg2_res = PeekMessageW (&msg2, NULL, WM_CHAR, WM_CHAR, PM_NOREMOVE);
++      API_CALL (GetKeyboardState, (key_state));
++      if (!msg2_res ||
++	  (key_state[VK_SHIFT] & 0x80) ||
++	  (key_state[VK_LCONTROL] & 0x80) ||
++	  (key_state[VK_RMENU] & 0x80) ||
++	  (key_state[VK_RCONTROL] & 0x80) ||
++	  (key_state[VK_LMENU] & 0x80) ||
++	  (key_state[VK_CONTROL] & 0x80) ||
++	  (key_state[VK_MENU] & 0x80))
++	{
++	  if (msg2_res)
++	    {
++	      /* Eat the WM_CHAR and emit the event right now. */
++	      PeekMessageW (&msg2, NULL, WM_CHAR, WM_CHAR, PM_REMOVE);
+ 
+-      if (GDK_WINDOW_DESTROYED (window))
+-	break;
++	      if (msg2.wParam > 32)
++		emit_gdk_key_event (msg, GDK_KEY_PRESS, msg->wParam, msg->time, window, _gdk_display->keyboard_grab, TRUE);
++	      else
++		emit_gdk_key_event (msg, GDK_KEY_PRESS, msg->wParam, msg->time, window, _gdk_display->keyboard_grab, FALSE);
++	    }
++	  else
++	    {
++	      emit_gdk_key_event (msg, GDK_KEY_PRESS, msg->wParam, msg->time, window, _gdk_display->keyboard_grab, FALSE);
++	    }
++	}
++      else
++	{
++	  emit_gdk_key_event (msg, GDK_KEY_PRESS, msg->wParam, msg->time, window, _gdk_display->keyboard_grab, FALSE);
++	}
+ 
+-      event = gdk_event_new ((msg->message == WM_KEYDOWN ||
+-			      msg->message == WM_SYSKEYDOWN) ?
+-			     GDK_KEY_PRESS : GDK_KEY_RELEASE);
+-      event->key.window = window;
+-      event->key.time = _gdk_win32_get_next_tick (msg->time);
+-      event->key.keyval = GDK_VoidSymbol;
+-      event->key.string = NULL;
+-      event->key.length = 0;
+-      event->key.hardware_keycode = msg->wParam;
+-      if (HIWORD (msg->lParam) & KF_EXTENDED)
++      break;
++
++    case WM_KEYUP:
++      if (in_dead_sequence)
+ 	{
+-	  switch (msg->wParam)
++	  if (finished_dead)
+ 	    {
+-	    case VK_CONTROL:
+-	      event->key.hardware_keycode = VK_RCONTROL;
+-	      break;
+-	    case VK_SHIFT:	/* Actually, KF_EXTENDED is not set
+-				 * for the right shift key.
+-				 */
+-	      event->key.hardware_keycode = VK_RSHIFT;
+-	      break;
+-	    case VK_MENU:
+-	      event->key.hardware_keycode = VK_RMENU;
+-	      break;
++	      if (!awaiting_next_in_sequence)
++		{
++		  emit_gdk_key_event (msg, GDK_KEY_RELEASE, msg->wParam, msg->time, window, _gdk_display->keyboard_grab, FALSE);
++		  in_dead_sequence = finished_dead = have_dead = FALSE;
++		  return_val = TRUE;
++		  break;
++		}
++	      else
++		{
++		  awaiting_next_in_sequence = FALSE;
++		}
++	    }
++	  else
++	    {
++	      finished_dead = TRUE;
++	      awaiting_next_in_sequence = TRUE;
+ 	    }
+-	}
+-      else if (msg->wParam == VK_SHIFT &&
+-	       LOBYTE (HIWORD (msg->lParam)) == _scancode_rshift)
+-	event->key.hardware_keycode = VK_RSHIFT;
+ 
+-      API_CALL (GetKeyboardState, (key_state));
++	  break;
++	}
+ 
+       /* g_print ("ctrl:%02x lctrl:%02x rctrl:%02x alt:%02x lalt:%02x ralt:%02x\n", key_state[VK_CONTROL], key_state[VK_LCONTROL], key_state[VK_RCONTROL], key_state[VK_MENU], key_state[VK_LMENU], key_state[VK_RMENU]); */
+       
+-      build_key_event_state (event, key_state);
+-
+-      if (msg->wParam == VK_PACKET &&
+-	  ToUnicode (VK_PACKET, HIWORD (msg->lParam), key_state, wbuf, 1, 0) == 1)
+-	event->key.keyval = gdk_unicode_to_keyval (wbuf[0]);
+-      else
+-	gdk_keymap_translate_keyboard_state (NULL,
+-					     event->key.hardware_keycode,
+-					     event->key.state,
+-					     event->key.group,
+-					     &event->key.keyval,
+-					     NULL, NULL, NULL);
+-
+-      fill_key_event_string (event);
++      if (!PeekMessageW (&msg2, NULL, WM_CHAR, WM_CHAR, PM_NOREMOVE))
++	{
++	  emit_gdk_key_event (msg, GDK_KEY_RELEASE, msg->wParam, msg->time, window, _gdk_display->keyboard_grab, FALSE);
++	}
+ 
+-      /* Reset MOD1_MASK if it is the Alt key itself */
+-      if (msg->wParam == VK_MENU)
+-	event->key.state &= ~GDK_MOD1_MASK;
++      last_hardware_keycode = 0;
++      break;
+ 
+-      _gdk_win32_append_event (event);
++    case WM_CHAR:
++      if (in_dead_sequence)
++	{
++	  finished_dead = TRUE;
++	}
+ 
+       return_val = TRUE;
+       break;
+@@ -2815,6 +2968,10 @@ gdk_event_translate (MSG  *msg,
+     case WM_SYSCOMMAND:
+       switch (msg->wParam)
+ 	{
++	case SC_KEYMENU:
++	  return_val = TRUE;
++	  break;
++
+ 	case SC_MINIMIZE:
+ 	case SC_RESTORE:
+ 	  do_show_window (window, msg->wParam == SC_MINIMIZE ? TRUE : FALSE);

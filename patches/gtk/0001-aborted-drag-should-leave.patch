@@ -1,0 +1,28 @@
+From 0d5201a4c361dc54a68e452139b49ce6b9df0ee3 Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Tue, 19 Feb 2013 17:58:01 +0100
+Subject: [PATCH] win32: make gdk_drag_abort() emit a GDK_DRAG_LEAVE
+
+This is akin to x11 behavior, and widgets expect this signal to
+happen (i.e. textview/treeview scroll-on-dnd isn't deactivated
+properly)
+---
+ gdk/win32/gdkdnd-win32.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/gdk/win32/gdkdnd-win32.c b/gdk/win32/gdkdnd-win32.c
+index a41a0e7..b4af269 100644
+--- a/gdk/win32/gdkdnd-win32.c
++++ b/gdk/win32/gdkdnd-win32.c
+@@ -2221,6 +2221,8 @@ gdk_drag_abort (GdkDragContext *context,
+ 
+   GDK_NOTE (DND, g_print ("gdk_drag_abort\n"));
+ 
++  gdk_drag_do_leave (context, time);
++
+   if (use_ole2_dnd)
+     _dnd_source_state = GDK_WIN32_DND_NONE;
+ }
+-- 
+1.8.1.2
+

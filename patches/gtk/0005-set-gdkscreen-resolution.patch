@@ -1,0 +1,47 @@
+From 36e518c85c32f342d1f46ee0408d3b2236bd91c9 Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Thu, 14 Feb 2013 14:27:47 +0100
+Subject: [PATCH] win32: set GdkScreen resolution
+
+This is so gdk-created pango contexts inherit the right DPI
+settings.
+---
+ gdk/win32/gdkdisplay-win32.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index cef6072..a91615a 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -178,6 +178,20 @@ _gdk_monitor_init (void)
+ #endif
+ }
+ 
++static void
++_gdk_screen_init_resolution (GdkScreen *screen)
++{
++  HDC hDC;
++
++  hDC = GetDC (NULL);
++
++  if (hDC)
++    {
++      gdk_screen_set_resolution (screen, GetDeviceCaps (hDC, LOGPIXELSY));
++      ReleaseDC (NULL, hDC);
++    }
++}
++
+ GdkDisplay *
+ gdk_display_open (const gchar *display_name)
+ {
+@@ -206,6 +220,7 @@ gdk_display_open (const gchar *display_name)
+   _gdk_visual_init ();
+   gdk_screen_set_default_colormap (_gdk_screen,
+                                    gdk_screen_get_system_colormap (_gdk_screen));
++  _gdk_screen_init_resolution (_gdk_screen);
+   _gdk_windowing_window_init (_gdk_screen);
+   _gdk_windowing_image_init ();
+   _gdk_events_init ();
+-- 
+1.8.1
+

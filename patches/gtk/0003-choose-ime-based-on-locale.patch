@@ -1,0 +1,159 @@
+From 525dd2e016eabb22508f2876973d2759f9bf56f3 Mon Sep 17 00:00:00 2001
+From: Aleksander Morgado <aleksander@lanedo.com>
+Date: Thu, 16 May 2013 10:35:39 +0200
+Subject: [PATCH] win32: use the input locale to decide the default input
+ method
+
+GTK+ tries to automatically assign the best input module based on the 'system
+locale'. In the specific case of the IME input method, it will be the default
+for the whole GTK+ application if the system locale is either Japanese (ja),
+Korean (ko) or Chinese (zh). Other defaults are equally applicable, e.g. if
+system locale is Catalan (ca), the special 'Cedilla' input module is chosen.
+
+System locale can be changed (e.g. Win7) through the following sequence (reboot
+required):
+  Control Panel
+    Region and Language
+      Administrative
+        Language for non-Unicode Programs
+          Change system locale...
+
+The problem with this behaviour is that changing the 'default input language'
+(e.g. from English to Japanese+IME) doesn't affect the GTK+ application.
+Therefore, I can have an English system locale (where GTK+ will choose Simple
+IM by default) but then have Japanese+IME as input language.
+
+Default input language can be changed (e.g. Win7) through the following
+sequence (no reboot required):
+System locale can be changed (e.g. Win7) through:
+  Control Panel
+    Region and Language
+      Keyboards and Languages
+        Keyboards and other input languages
+          Change keyboards...
+
+Default input language can also be changed using the language bar directly.
+
+So, instead of using the system-wide default locale to decide which input method
+to use as default, better use the input language specified by the user, which
+may be the same as the system-wide default locale, or different. Following the
+previous example, with an English system locale and a Japanese+IME input
+language, the default input method will now be IME instead of Simple, which is
+closer to what's expected by the user.
+
+This change only affects the application during startup; i.e. if the user
+changes the input language while the application is running, we wouldn't be
+changing the default input method to use. We could do this processing the
+WM_INPUTLANGCHANGE messages, though.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=700428
+---
+ gtk/gtkimmodule.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 75 insertions(+), 1 deletion(-)
+
+diff --git a/gtk/gtkimmodule.c b/gtk/gtkimmodule.c
+index d29162d..8aca89a 100644
+--- a/gtk/gtkimmodule.c
++++ b/gtk/gtkimmodule.c
+@@ -40,6 +40,10 @@
+ #include "gtkintl.h"
+ #include "gtkalias.h"
+ 
++#ifdef G_OS_WIN32
++#include <windows.h>
++#endif
++
+ /* Do *not* include "gtkprivate.h" in this file. If you do, the
+  * correct_libdir_prefix() and correct_localedir_prefix() functions
+  * below will have to move somewhere else.
+@@ -672,6 +676,67 @@ lookup_immodule (gchar **immodules_list)
+   return NULL;
+ }
+ 
++#ifdef G_OS_WIN32
++
++/* max size for LOCALE_SISO639LANGNAME and LOCALE_SISO3166CTRYNAME is 9 */
++#define MAX_NAME_SIZE 9
++
++static gchar *
++get_current_input_language (void)
++{
++  LCID lcid;
++  LANGID langid;
++  HKL kblayout;
++  int name_size;
++  wchar_t name[MAX_NAME_SIZE];
++  gchar *language;
++  gchar *country;
++  gchar *full;
++
++  /* Current thread's keyboard layout */
++  kblayout = GetKeyboardLayout(0);
++  /* lowest word in the HKL is the LANGID */
++  langid = ((guint32)kblayout) & 0xFFFF;
++  /* LCID is the LANGID without order */
++  lcid = langid;
++
++  /* Get Language ID */
++  name_size = GetLocaleInfoW (lcid, LOCALE_SISO639LANGNAME, NULL, 0);
++  if (name_size <= 1)
++    return NULL;
++
++  g_assert (name_size <= MAX_NAME_SIZE);
++  GetLocaleInfoW (lcid, LOCALE_SISO639LANGNAME, name, name_size);
++
++  language = g_utf16_to_utf8 (name, name_size, NULL, NULL, NULL);
++  if (!language)
++    return NULL;
++
++  if (SUBLANGID (langid) == SUBLANG_NEUTRAL)
++    return language;
++
++  /* Get Country ID */
++  name_size = GetLocaleInfoW (lcid, LOCALE_SISO3166CTRYNAME, NULL, 0);
++  if (name_size <= 1)
++    return language;
++
++  g_assert (name_size <= MAX_NAME_SIZE);
++  GetLocaleInfoW (lcid, LOCALE_SISO3166CTRYNAME, name, name_size);
++
++  country = g_utf16_to_utf8 (name, name_size, NULL, NULL, NULL);
++  if (!country)
++    return language;
++
++  full = g_strdup_printf ("%s_%s", language, country);
++
++  g_free (language);
++  g_free (country);
++
++  return full;
++}
++
++#endif
++
+ /**
+  * _gtk_im_module_get_default_context_id:
+  * @client_window: a window
+@@ -726,9 +791,18 @@ _gtk_im_module_get_default_context_id (GdkWindow *client_window)
+         }
+     }
+ 
++#ifdef G_OS_WIN32
++  /* Read current input locale from the current keyboard info */
++  tmp_locale = get_current_input_language ();
++  if (!tmp_locale)
++    /* Default to system locale when input language is unknown */
++    tmp_locale = _gtk_get_lc_ctype ();
++#else
++  tmp_locale = _gtk_get_lc_ctype ();
++#endif
++
+   /* Strip the locale code down to the essentials
+    */
+-  tmp_locale = _gtk_get_lc_ctype ();
+   tmp = strchr (tmp_locale, '.');
+   if (tmp)
+     *tmp = '\0';
+-- 
+1.8.1.4
+

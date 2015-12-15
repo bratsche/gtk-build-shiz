@@ -433,10 +433,34 @@ Target "gtk" <| fun _ ->
 
   Path.Combine(buildDir(), "gtk+-2.24.28")
   |> from (fun () ->
-    patch "gtk\\gtk-revert-scrolldc-commit.patch"
-    patch "gtk\\gtk-bgimg.patch"
-    patch "gtk\\gtk-accel.patch"
-    patch "gtk\\gtk-multimonitor.patch"
+    //patch "gtk\\gtk-revert-scrolldc-commit.patch"
+    //patch "gtk\\gtk-bgimg.patch"
+    //patch "gtk\\gtk-accel.patch"
+    //patch "gtk\\gtk-multimonitor.patch"
+
+    patch "gtk\\0001-aborted-drag-should-leave.patch"
+    patch "gtk\\0002-fix-dnd-in-autohide-pads.patch"
+    patch "gtk\\0003-choose-ime-based-on-locale.patch"
+    patch "gtk\\0004-fix-ime-candidate-location.patch"
+    patch "gtk\\0005-set-gdkscreen-resolution.patch"
+    patch "gtk\\0006-never-restack-below-temp.patch"
+    patch "gtk\\0007-disable-combobox-scrolling.patch"
+    patch "gtk\\0008-remove-window-pos-changing-stacking.patch"
+    patch "gtk\\0009-dont-override-icon-size-in-mswindows-theme.patch"
+    patch "gtk\\0010-treeview-combobox-dont-appear-as-list.patch"
+    patch "gtk\\0011-retina-icons-2.patch"
+    patch "gtk\\0012-win32-scale-factor.patch"
+    patch "gtk\\0013-win32-dpi-awareness.patch"
+    patch "gtk\\0014-fix-win32-exports.patch"
+    patch "gtk\\0015-scaled-image-win32.patch"
+    patch "gtk\\0016-round-scale-up-to-2-0.patch"
+    patch "gtk\\0017-combobox-rendering.patch"
+    patch "gtk\\0018-dead-key-fixes.patch"
+    patch "gtk\\0019-fix-keyboard-input.patch"
+    patch "gtk\\0020-dont-affect-zorder-of-window-stack.patch"
+    patch "gtk\\0021-register-classw.patch"
+    patch "gtk\\0022-include-math-h.patch"
+    //patch "gtk\\0023-highdpi-WIP.patch"
   )
 
   let slnDir = Path.Combine(buildDir(), "gtk+-2.24.28", "build", "win32", "vs12")

@@ -1,0 +1,16 @@
+commit 958b27733f8c635f6d4033d08f1664ae17180af3
+Author: Cody Russell <cody@jhu.edu>
+Date:   Fri Mar 14 10:23:10 2014 -0500
+
+    Don't override gtk-menu icon size to 13x13 in ms-windows theme.
+
+diff --git a/modules/engines/ms-windows/Theme/gtk-2.0/gtkrc b/modules/engines/ms-windows/Theme/gtk-2.0/gtkrc
+index 162265f..58ad880 100755
+--- a/modules/engines/ms-windows/Theme/gtk-2.0/gtkrc
++++ b/modules/engines/ms-windows/Theme/gtk-2.0/gtkrc
+@@ -1,4 +1,4 @@
+-gtk-icon-sizes = "gtk-menu=13,13:gtk-small-toolbar=16,16:gtk-large-toolbar=24,24:gtk-dnd=32,32"
++gtk-icon-sizes = "gtk-small-toolbar=16,16:gtk-large-toolbar=24,24:gtk-dnd=32,32"
+ gtk-toolbar-icon-size = small-toolbar
+ 
+ # disable images in buttons. i've only seen ugly delphi apps use this feature.

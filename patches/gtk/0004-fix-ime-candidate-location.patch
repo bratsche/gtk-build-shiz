@@ -1,0 +1,57 @@
+From 6f4588c0096daf1713216ac000a2e6fedc4e7e99 Mon Sep 17 00:00:00 2001
+From: Carlos Garnacho <carlosg@gnome.org>
+Date: Fri, 5 Jul 2013 18:18:42 +0200
+Subject: [PATCH] ime: Use CFS_EXCLUDE to specify cursor position
+
+That mode of operation requires an exclude rectangle, which maps
+better to the info provided on gtk_im_context_set_cursor_location(),
+coincidentally also fixes the offset seen on the IME preedit window.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=663096
+---
+ modules/input/gtkimcontextime.c | 27 ++++++++-------------------
+ 1 file changed, 8 insertions(+), 19 deletions(-)
+
+diff --git a/modules/input/gtkimcontextime.c b/modules/input/gtkimcontextime.c
+index 4682146..60a36bc 100644
+--- a/modules/input/gtkimcontextime.c
++++ b/modules/input/gtkimcontextime.c
+@@ -934,27 +934,16 @@ gtk_im_context_ime_message_filter (GdkXEvent *xevent,
+         CANDIDATEFORM cf;
+ 
+         get_window_position (context_ime->client_window, &wx, &wy);
+-        /* FIXME! */
+-        {
+-          HWND hwnd_top;
+-          POINT pt;
+-          RECT rc;
+-
+-          hwnd_top =
+-            gdk_win32_window_get_impl_hwnd (gdk_window_get_toplevel
+-                                            (context_ime->client_window));
+-          GetWindowRect (hwnd_top, &rc);
+-          pt.x = wx;
+-          pt.y = wy;
+-          ClientToScreen (hwnd_top, &pt);
+-          wx = pt.x - rc.left;
+-          wy = pt.y - rc.top;
+-        }
+         cf.dwIndex = 0;
+-        cf.dwStyle = CFS_CANDIDATEPOS;
++        cf.dwStyle = CFS_EXCLUDE;
+         cf.ptCurrentPos.x = wx + context_ime->cursor_location.x;
+-        cf.ptCurrentPos.y = wy + context_ime->cursor_location.y
+-          + context_ime->cursor_location.height;
++        cf.ptCurrentPos.y = wy + context_ime->cursor_location.y;
++        cf.rcArea.left = wx + context_ime->cursor_location.x;
++        cf.rcArea.right = wx + context_ime->cursor_location.x +
++          context_ime->cursor_location.width;
++        cf.rcArea.top = wy + context_ime->cursor_location.y;
++        cf.rcArea.bottom = wy + context_ime->cursor_location.y +
++          context_ime->cursor_location.height;
+         ImmSetCandidateWindow (himc, &cf);
+ 
+         if ((msg->lParam & GCS_COMPSTR))
+-- 
+1.8.3.2
+
