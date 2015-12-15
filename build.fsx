@@ -427,11 +427,11 @@ Target "pango" <| fun _ ->
   install "pango-1.36.8-rel" |> ignore
 
 Target "gtk" <| fun _ ->
-  "http://ftp.gnome.org/pub/gnome/sources/gtk+/2.24/gtk+-2.24.25.tar.xz"
+  "http://ftp.gnome.org/pub/gnome/sources/gtk+/2.24/gtk+-2.24.28.tar.xz"
   |> download
   |> extract
 
-  Path.Combine(buildDir(), "gtk+-2.24.25")
+  Path.Combine(buildDir(), "gtk+-2.24.28")
   |> from (fun () ->
     patch "gtk\\gtk-revert-scrolldc-commit.patch"
     patch "gtk\\gtk-bgimg.patch"
@@ -439,7 +439,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\gtk-multimonitor.patch"
   )
 
-  let slnDir = Path.Combine(buildDir(), "gtk+-2.24.25", "build", "win32", "vs12")
+  let slnDir = Path.Combine(buildDir(), "gtk+-2.24.28", "build", "win32", "vs12")
   Directory.GetFiles(Path.Combine("slns", "gtk", "build", "win32", "vs12"), "*.*")
   |> CopyFiles slnDir
 
@@ -451,7 +451,7 @@ Target "gtk" <| fun _ ->
     }
   )
 
-  install "gtk-2.24.25-rel" |> ignore
+  install "gtk-rel" |> ignore
 
 Target "zlib" <| fun _ ->
   "zlib-1.2.8.7z" |> extract

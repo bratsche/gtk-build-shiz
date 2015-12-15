@@ -3,15 +3,15 @@
   <PropertyGroup Label="UserMacros">
     <VSVer>10</VSVer>
     <GlibEtcInstallRoot>..\..\..\..\..\..\install\gtk\$(Platform)</GlibEtcInstallRoot>
-    <CopyDir>..\..\..\..\gtk-2.24.25-rel</CopyDir>
+    <CopyDir>..\..\..\..\gtk-rel</CopyDir>
     <DefDir>$(SolutionDir)$(Configuration)\$(Platform)\obj\$(ProjectName)</DefDir>
     <ApiVersion>2.0</ApiVersion>
     <GtkLibtoolCompatibleDllPrefix>lib</GtkLibtoolCompatibleDllPrefix>
     <GtkLibtoolCompatibleDllSuffix>-$(ApiVersion)-0</GtkLibtoolCompatibleDllSuffix>
     <GtkSeparateVSDllPrefix />
     <GtkSeparateVSDllSuffix>-2.0</GtkSeparateVSDllSuffix>
-    <GtkDllPrefix>$(GtkLibtoolCompatibleDllPrefix)</GtkDllPrefix>
-    <GtkDllSuffix>$(GtkLibtoolCompatibleDllSuffix)</GtkDllSuffix>
+    <GtkDllPrefix>$(GtkSeparateVSDllPrefix)</GtkDllPrefix>
+    <GtkDllSuffix>$(GtkSeparateVSDllSuffix)</GtkDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>gtkversionpathsprops</_PropertySheetDisplayName>
