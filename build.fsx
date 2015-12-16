@@ -61,6 +61,13 @@ let download (url: string) =
 
     file
 
+let do7z =
+    let path =
+        ["C:\\Program Files\\7-Zip\\7z.exe"; "C:\\Program Files (x86)\\7-Zip\\7z.exe"]
+        |> List.find (File.Exists)
+
+    fun args -> sh path
+
 let extract (path:string) =
   let file = Path.Combine(srcDir(), path)
 
@@ -75,7 +82,7 @@ let extract (path:string) =
       match file with
       | x when Regex.Match(x, "\.7z$").Success ->
           sprintf "x %s -o.\\build\\win32" file
-          |> sh "C:\Program Files\7-Zip\7z.exe"
+          |> do7z
           |> ignore
       | x when Regex.Match(x, "\.tar\.[gx]z$").Success || Regex.Match(x, "\.tar\.bz2$").Success ->
           buildDir()
