@@ -448,7 +448,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0008-remove-window-pos-changing-stacking.patch"
     patch "gtk\\0009-dont-override-icon-size-in-mswindows-theme.patch"
     patch "gtk\\0010-treeview-combobox-dont-appear-as-list.patch"
-    patch "gtk\\0011-retina-icons-2.patch"
+    patch "gtk\\0011-retina-icons.patch"
     patch "gtk\\0012-win32-scale-factor.patch"
     patch "gtk\\0013-win32-dpi-awareness.patch"
     patch "gtk\\0014-fix-win32-exports.patch"
@@ -460,6 +460,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0020-dont-affect-zorder-of-window-stack.patch"
     patch "gtk\\0021-register-classw.patch"
     patch "gtk\\0022-include-math-h.patch"
+    patch "gtk\\highdpi-25-3.patch"
     //patch "gtk\\0023-highdpi-WIP.patch"
   )
 
