@@ -10,8 +10,8 @@
     <GtkLibtoolCompatibleDllSuffix>-$(ApiVersion)-0</GtkLibtoolCompatibleDllSuffix>
     <GtkSeparateVSDllPrefix />
     <GtkSeparateVSDllSuffix>-2.0</GtkSeparateVSDllSuffix>
-    <GtkDllPrefix>$(GtkLibtoolCompatibleDllPrefix)</GtkDllPrefix>
-    <GtkDllSuffix>$(GtkLibtoolCompatibleDllSuffix)</GtkDllSuffix>
+    <GtkDllPrefix>$(GtkSeparateVSDllPrefix)</GtkDllPrefix>
+    <GtkDllSuffix>$(GtkSeparateVSDllSuffix)</GtkDllSuffix>
   </PropertyGroup>
   <PropertyGroup>
     <_PropertySheetDisplayName>gtkversionpathsprops</_PropertySheetDisplayName>
