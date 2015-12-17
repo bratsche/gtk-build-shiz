@@ -387,7 +387,7 @@ Target "cairo" <| fun _ ->
   Path.Combine(buildDir(), "cairo-1.14.6")
   |> from (fun () ->
     //patch "cairo\\cairo-array-vs-struct-initializer.patch"
-    printf "No patches to apply"
+    patch "cairo\\cairo-scale-factor-win32-1.patch"
   )
 
   let slnDir = Path.Combine(buildDir(), "cairo-1.14.6", "msvc")
@@ -461,6 +461,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0021-register-classw.patch"
     patch "gtk\\0022-include-math-h.patch"
     patch "gtk\\highdpi-25-3.patch"
+    patch "gtk\\moar-highdpi-shiz-1.patch"
     //patch "gtk\\0023-highdpi-WIP.patch"
   )
 

@@ -1,0 +1,86 @@
+diff --git a/gdk/win32/gdkdrawable-win32.c b/gdk/win32/gdkdrawable-win32.c
+index 178e40a..1c36909 100644
+--- a/gdk/win32/gdkdrawable-win32.c
++++ b/gdk/win32/gdkdrawable-win32.c
+@@ -1555,28 +1555,21 @@ blit_inside_drawable (HDC                   hdc,
+        * scrolling a window that is partially obscured by another window. For
+        * example, GIMP's toolbox being over the editor window. */
+ 
+-      RECT emptyRect, clipRect;
++      RECT scrollRect, emptyRect;
+       HRGN updateRgn;
+-      GdkRegion *update_region;
+ 
+-      clipRect.left = xdest;
+-      clipRect.top = ydest;
+-      clipRect.right = xdest + width;
+-      clipRect.bottom = ydest + height;
++      scrollRect.left = MIN (xsrc, xdest) * scale;
++      scrollRect.top = MIN (ysrc, ydest) * scale;
++      scrollRect.right = MAX (xsrc + width + 1, xdest + width + 1) * scale;
++      scrollRect.bottom = MAX (ysrc + height + 1, ydest + height + 1) * scale;
+ 
+       SetRectEmpty (&emptyRect);
+       updateRgn = CreateRectRgnIndirect (&emptyRect);
+ 
+-      if (!ScrollDC (hdc, xdest - xsrc, ydest - ysrc, NULL, &clipRect, updateRgn, NULL))
++      if (!ScrollDC (hdc, (xdest - xsrc) * scale, (ydest - ysrc) * scale, &scrollRect, NULL, updateRgn, NULL))
+         WIN32_GDI_FAILED ("ScrollDC");
+-      else
+-	{
+-	  GdkDrawable *wrapper = src->wrapper;
+-	  update_region = _gdk_win32_hrgn_to_region (updateRgn, scale);
+-	  if (!gdk_region_empty (update_region))
+-	    _gdk_window_invalidate_for_expose (GDK_WINDOW (wrapper), update_region);
+-	  gdk_region_destroy (update_region);
+-	}
++      else if (!InvalidateRgn (src->handle, updateRgn, FALSE))
++        WIN32_GDI_FAILED ("InvalidateRgn");
+ 
+       if (!DeleteObject (updateRgn))
+         WIN32_GDI_FAILED ("DeleteObject");
+diff --git a/gdk/win32/gdkgc-win32.c b/gdk/win32/gdkgc-win32.c
+index f44322e..cbcfba6 100644
+--- a/gdk/win32/gdkgc-win32.c
++++ b/gdk/win32/gdkgc-win32.c
+@@ -819,10 +819,14 @@ gdk_win32_hdc_get (GdkDrawable    *drawable,
+   HPEN hpen;
+   HBRUSH hbr;
+ 
+-  g_assert (win32_gc->hdc == NULL);
+-
+   impl = get_impl_drawable (drawable);
+   
++  if (win32_gc->hdc != NULL)
++  {
++    impl->hdc_count++;
++    return win32_gc->hdc;
++  }
++
+   win32_gc->hdc = _gdk_win32_drawable_acquire_dc (GDK_DRAWABLE (impl));
+   ok = win32_gc->hdc != NULL;
+ 
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index 881a2c1..7dfc730 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -1201,8 +1201,8 @@ show_window_internal (GdkWindow *window,
+ 	  x = center_on_rect.left + ((center_on_rect.right - center_on_rect.left) - (window_rect.right - window_rect.left)) / 2;
+ 	  y = center_on_rect.top + ((center_on_rect.bottom - center_on_rect.top) - (window_rect.bottom - window_rect.top)) / 2;
+ 
+-          x -= _gdk_offset_x * scale;
+-          y -= _gdk_offset_y * scale;
++	  x -= _gdk_offset_x * scale;
++	  y -= _gdk_offset_y * scale;
+ 	}
+ 
+       API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+@@ -1870,7 +1870,7 @@ gdk_win32_window_raise (GdkWindow *window)
+       if (GDK_WINDOW_TYPE (window) == GDK_WINDOW_TEMP)
+         API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), HWND_TOPMOST,
+ 	                         0, 0, 0, 0,
+-				 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER));
++				 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE));
+       else if (((GdkWindowObject *)window)->accept_focus)
+         /* Do not wrap this in an API_CALL macro as SetForegroundWindow might
+          * fail when for example dragging a window belonging to a different
