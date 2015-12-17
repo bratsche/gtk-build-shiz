@@ -87,7 +87,7 @@ let extract (path:string) =
       | x when Regex.Match(x, "\.tar\.[gx]z$").Success || Regex.Match(x, "\.tar\.bz2$").Success ->
           buildDir()
           |> from (fun () ->
-              sprintf "xf %s" (mingwify(file))
+              sprintf "xf \"%s\"" (mingwify(file))
               |> sh "tar"
               |> ignore
           )
