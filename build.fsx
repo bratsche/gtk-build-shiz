@@ -102,7 +102,7 @@ let install (path) =
     copyRecursive inDi outDi true
 
 let patch filename =
-  sprintf "-p1 -i %s" (Path.Combine(patchDir(), filename))
+  sprintf "-p1 -i \"%s\"" (Path.Combine(patchDir(), filename))
   |> sh "C:\\msys32\\usr\\bin\\patch.exe"
 
 
