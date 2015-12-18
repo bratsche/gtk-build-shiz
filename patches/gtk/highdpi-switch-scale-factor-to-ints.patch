@@ -1,0 +1,391 @@
+diff --git a/gdk/gdkscreen.h b/gdk/gdkscreen.h
+index 1472d6f..5085601 100644
+--- a/gdk/gdkscreen.h
++++ b/gdk/gdkscreen.h
+@@ -106,7 +106,7 @@ gint          gdk_screen_get_monitor_height_mm (GdkScreen *screen,
+                                                 gint       monitor_num);
+ gchar *       gdk_screen_get_monitor_plug_name (GdkScreen *screen,
+                                                 gint       monitor_num);
+-gdouble       gdk_screen_get_monitor_scale_factor (GdkScreen *screen,
++gint          gdk_screen_get_monitor_scale_factor (GdkScreen *screen,
+                                                    gint       monitor_num);
+ 
+ void          gdk_screen_broadcast_client_message  (GdkScreen       *screen,
+diff --git a/gdk/gdkwindow.c b/gdk/gdkwindow.c
+index 6ee431b..3cd652f 100644
+--- a/gdk/gdkwindow.c
++++ b/gdk/gdkwindow.c
+@@ -2744,7 +2744,7 @@ gdk_window_begin_implicit_paint (GdkWindow *window, GdkRectangle *rect)
+ {
+   GdkWindowObject *private = (GdkWindowObject *)window;
+   GdkWindowPaint *paint;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   g_assert (gdk_window_has_impl (private));
+ 
+@@ -11364,7 +11364,7 @@ gdk_window_get_height (GdkWindow *window)
+   return height;
+ }
+ 
+-gdouble
++gint
+ gdk_window_get_scale_factor (GdkWindow *window)
+ {
+   GdkWindowObject *private;
+@@ -11374,7 +11374,7 @@ gdk_window_get_scale_factor (GdkWindow *window)
+ 
+   private = (GdkWindowObject *) window;
+   if (private->destroyed)
+-    return 1.0;
++    return 1;
+ 
+   window = gdk_window_get_toplevel (window);
+ 
+@@ -11386,7 +11386,7 @@ gdk_window_get_scale_factor (GdkWindow *window)
+         return impl_iface->get_scale_factor (window);
+     }
+ 
+-  return 1.0;
++  return 1;
+ }
+ 
+ #define __GDK_WINDOW_C__
+diff --git a/gdk/gdkwindow.h b/gdk/gdkwindow.h
+index 95a3665..aaee05a 100644
+--- a/gdk/gdkwindow.h
++++ b/gdk/gdkwindow.h
+@@ -341,7 +341,7 @@ GdkDisplay*   gdk_window_get_display           (GdkWindow     *window);
+ GdkVisual*    gdk_window_get_visual            (GdkWindow     *window);
+ int           gdk_window_get_width             (GdkWindow     *window);
+ int           gdk_window_get_height            (GdkWindow     *window);
+-gdouble       gdk_window_get_scale_factor      (GdkWindow     *window);
++gint          gdk_window_get_scale_factor      (GdkWindow     *window);
+ 
+ GdkWindow*    gdk_window_at_pointer            (gint          *win_x,
+                                                 gint          *win_y);
+diff --git a/gdk/gdkwindowimpl.h b/gdk/gdkwindowimpl.h
+index d6a0c89..eaffad7 100644
+--- a/gdk/gdkwindowimpl.h
++++ b/gdk/gdkwindowimpl.h
+@@ -147,7 +147,7 @@ struct _GdkWindowImplIface
+   void         (* input_window_crossing)(GdkWindow       *window,
+ 					 gboolean         enter);
+ 
+-  gdouble      (* get_scale_factor)     (GdkWindow       *window);
++  gint         (* get_scale_factor)     (GdkWindow       *window);
+ 
+   gboolean     supports_native_bg;
+ };
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index 8910100..b75cf58 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -91,6 +91,8 @@ enum_monitor (HMONITOR hmonitor,
+   gint *index = (gint *) data;
+   GdkWin32Monitor *monitor;
+ 
++  const char *scale_str;
++
+   g_assert (*index < _gdk_num_monitors);
+ 
+   monitor = _gdk_monitors + *index;
+@@ -112,7 +114,13 @@ enum_monitor (HMONITOR hmonitor,
+   monitor->rect.width = monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+   monitor->rect.height = monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+ 
+-  if (p_GetDpiForMonitor != NULL)
++  scale_str = g_getenv ("GDK_SCALE");
++
++  if (scale_str)
++    {
++	  monitor->scale_factor = atol (scale_str);
++    }
++  else if (p_GetDpiForMonitor != NULL)
+     {
+       guint dpi_x, dpi_y;
+       p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+diff --git a/gdk/win32/gdkevents-win32.c b/gdk/win32/gdkevents-win32.c
+index b547716..1a359f2 100644
+--- a/gdk/win32/gdkevents-win32.c
++++ b/gdk/win32/gdkevents-win32.c
+@@ -1690,7 +1690,7 @@ _gdk_win32_emit_configure_event (GdkWindow *window)
+ }
+ 
+ GdkRegion *
+-_gdk_win32_hrgn_to_region (HRGN hrgn, double scale)
++_gdk_win32_hrgn_to_region (HRGN hrgn, int scale)
+ {
+   RGNDATA *rgndata;
+   RECT *rects;
+diff --git a/gdk/win32/gdkprivate-win32.h b/gdk/win32/gdkprivate-win32.h
+index e687af4..08eef2e 100644
+--- a/gdk/win32/gdkprivate-win32.h
++++ b/gdk/win32/gdkprivate-win32.h
+@@ -398,7 +398,7 @@ struct _GdkWin32Monitor
+   gchar *name;
+   gint width_mm, height_mm;
+   GdkRectangle rect;
+-  gdouble scale_factor;
++  gint scale_factor;
+ };
+ extern GdkWin32Monitor  *_gdk_monitors;
+ 
+diff --git a/gdk/win32/gdkscreen-win32.c b/gdk/win32/gdkscreen-win32.c
+index a08dbeb..d8e77a5 100644
+--- a/gdk/win32/gdkscreen-win32.c
++++ b/gdk/win32/gdkscreen-win32.c
+@@ -97,13 +97,13 @@ gdk_screen_get_monitor_height_mm (GdkScreen *screen,
+   return _gdk_monitors[num_monitor].height_mm;
+ }
+ 
+-gdouble
++gint
+ gdk_screen_get_monitor_scale_factor (GdkScreen *screen,
+ 				     gint       num_monitor)
+ {
+-  g_return_val_if_fail (GDK_IS_SCREEN (screen), 1.0);
+-  g_return_val_if_fail (num_monitor < gdk_screen_get_n_monitors (screen), 1.0);
+-  g_return_val_if_fail (num_monitor >= 0, 1.0);
++  g_return_val_if_fail (GDK_IS_SCREEN (screen), 1);
++  g_return_val_if_fail (num_monitor < gdk_screen_get_n_monitors (screen), 1);
++  g_return_val_if_fail (num_monitor >= 0, 1);
+ 
+   return _gdk_monitors[num_monitor].scale_factor;
+ }
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index 7dfc730..fcedff1 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -550,7 +550,7 @@ _gdk_window_impl_new (GdkWindow     *window,
+   gint x = 0, y = 0, real_x = 0, real_y = 0;
+   /* check consistency of redundant information */
+   guint remaining_mask = attributes_mask;
+-  double scale = gdk_screen_get_monitor_scale_factor (gdk_screen_get_default(), 0);
++  int scale = gdk_screen_get_monitor_scale_factor (gdk_screen_get_default(), 0);
+ 
+   private = (GdkWindowObject *)window;
+ 
+@@ -983,7 +983,7 @@ get_outer_rect (GdkWindow *window,
+ 		gint       height,
+ 		RECT      *rect)
+ {
+-	double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+   rect->left = rect->top = 0;
+   rect->right = width * scale;
+   rect->bottom = height * scale;
+@@ -999,7 +999,7 @@ adjust_for_gravity_hints (GdkWindow *window,
+ {
+ 	GdkWindowObject *obj;
+ 	GdkWindowImplWin32 *impl;
+-	double scale = gdk_window_get_scale_factor(window);
++	int scale = gdk_window_get_scale_factor(window);
+ 
+ 	obj = GDK_WINDOW_OBJECT (window);
+ 	impl = GDK_WINDOW_IMPL_WIN32 (obj->impl);
+@@ -1074,7 +1074,7 @@ show_window_internal (GdkWindow *window,
+   GdkWindowImplWin32 *window_impl;
+   gboolean focus_on_map = FALSE;
+   DWORD exstyle;
+-  double scale = gdk_window_get_scale_factor(GDK_WINDOW(window));
++  int scale = gdk_window_get_scale_factor(GDK_WINDOW(window));
+ 
+   private = (GdkWindowObject *) window;
+ 
+@@ -1365,7 +1365,7 @@ gdk_win32_window_move (GdkWindow *window,
+ {
+   GdkWindowObject *private = (GdkWindowObject *)window;
+   GdkWindowImplWin32 *impl;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+@@ -1416,7 +1416,7 @@ gdk_win32_window_resize (GdkWindow *window,
+ {
+   GdkWindowObject *private = (GdkWindowObject*) window;
+   GdkWindowImplWin32 *impl;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+@@ -1470,7 +1470,7 @@ gdk_win32_window_move_resize_internal (GdkWindow *window,
+ {
+   GdkWindowObject *private;
+   GdkWindowImplWin32 *impl;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+@@ -1573,7 +1573,7 @@ gdk_win32_window_reparent (GdkWindow *window,
+   GdkWindowImplWin32 *impl;
+   gboolean was_toplevel;
+   LONG style;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   if (!new_parent)
+     new_parent = _gdk_root;
+@@ -1668,7 +1668,7 @@ erase_background (GdkWindow *window,
+   GdkColormapPrivateWin32 *colormap_private;
+   int x, y;
+   int x_offset, y_offset;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+   
+   if (((GdkWindowObject *) window)->input_only ||
+       ((GdkWindowObject *) window)->bg_pixmap == GDK_NO_BG)
+@@ -1791,7 +1791,7 @@ gdk_win32_window_clear_area (GdkWindow *window,
+ 			     gboolean   send_expose)
+ {
+   GdkWindowObject *private = (GdkWindowObject *)window;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   x;
+   y;
+@@ -1914,7 +1914,7 @@ gdk_window_set_hints (GdkWindow *window,
+   /* Note that this function is obsolete */
+ 
+   GdkWindowImplWin32 *impl;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   x *= scale;
+   y *= scale;
+@@ -2494,7 +2494,7 @@ gdk_win32_window_get_geometry (GdkWindow *window,
+ {
+   if (!window)
+     window = _gdk_root;
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   if (!GDK_WINDOW_DESTROYED (window))
+     {
+@@ -2556,7 +2556,7 @@ gdk_win32_window_get_root_coords (GdkWindow *window,
+ 				  gint      *root_x,
+ 				  gint      *root_y)
+ {
+-	double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+   gint tx;
+   gint ty;
+   POINT pt;
+@@ -2654,7 +2654,7 @@ gdk_window_get_frame_extents (GdkWindow    *window,
+ 
+   private = GDK_WINDOW_OBJECT (window);
+ 
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   rect->x = 0;
+   rect->y = 0;
+@@ -2723,7 +2723,7 @@ gdk_window_win32_get_pointer (GdkWindow       *window,
+ 
+   g_return_val_if_fail (window == NULL || GDK_IS_WINDOW (window), FALSE);
+   
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   return_val = TRUE;
+ 
+@@ -2763,7 +2763,7 @@ _gdk_windowing_get_pointer (GdkDisplay       *display,
+   
+   *screen = _gdk_screen;
+ 
+-  double scale = gdk_screen_get_monitor_scale_factor(_gdk_screen, 0);
++  int scale = gdk_screen_get_monitor_scale_factor(_gdk_screen, 0);
+ 
+   GetCursorPos (&point);
+   *x = point.x / scale + _gdk_offset_x;
+@@ -2781,7 +2781,7 @@ gdk_display_warp_pointer (GdkDisplay *display,
+   g_return_if_fail (display == _gdk_display);
+   g_return_if_fail (screen == _gdk_screen);
+ 
+-  double scale = gdk_screen_get_monitor_scale_factor(screen, 0);
++  int scale = gdk_screen_get_monitor_scale_factor(screen, 0);
+ 
+   SetCursorPos ((x - _gdk_offset_x) * scale,
+ 				(y - _gdk_offset_y) * scale);
+@@ -2805,7 +2805,7 @@ _gdk_windowing_window_at_pointer (GdkDisplay *display,
+   POINT screen_pt, client_pt;
+   HWND hwnd, hwndc;
+   RECT rect;
+-  double scale = gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++  int scale = gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
+ 
+   GetCursorPos (&screen_pt);
+ 
+@@ -3633,7 +3633,7 @@ gdk_window_fullscreen (GdkWindow *window)
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   fi = g_new (FullscreenInfo, 1);
+ 
+@@ -4020,7 +4020,7 @@ _gdk_windowing_get_shape_for_mask (GdkBitmap *mask)
+ {
+   GdkRegion *region;
+   HRGN hrgn = _gdk_win32_bitmap_to_hrgn (mask);
+-  double scale = gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++  int scale = gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
+ 
+   region = _gdk_win32_hrgn_to_region (hrgn, scale);
+   DeleteObject (hrgn);
+@@ -4038,7 +4038,7 @@ _gdk_windowing_window_get_shape (GdkWindow *window)
+ {
+   HRGN hrgn = CreateRectRgn (0, 0, 0, 0);
+   int  type = GetWindowRgn (GDK_WINDOW_HWND (window), hrgn);
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+ 
+   if (type == SIMPLEREGION || type == COMPLEXREGION)
+     {
+@@ -4094,7 +4094,7 @@ _gdk_win32_window_queue_translation (GdkWindow *window,
+ {
+   HRGN hrgn = CreateRectRgn (0, 0, 0, 0);
+   int ret = GetUpdateRgn (GDK_WINDOW_HWND (window), hrgn, FALSE);
+-  double scale = gdk_window_get_scale_factor(window);
++  int scale = gdk_window_get_scale_factor(window);
+   if (ret == ERROR)
+     WIN32_API_FAILED ("GetUpdateRgn");
+   else if (ret != NULLREGION)
+@@ -4143,21 +4143,29 @@ _gdk_windowing_after_process_all_updates (void)
+ {
+ }
+ 
+-static gdouble
++static gint
+ gdk_win32_window_get_scale_factor (GdkWindow *window)
+ {
++  const char *scale_str;
++
+   if (GDK_WINDOW_DESTROYED (window))
+-    return 1.0;
++    return 1;
++
++  scale_str = g_getenv ("GDK_SCALE");
++  if (scale_str)
++    {
++      return atol(scale_str);
++    }
+ 
+   if (p_GetDpiForMonitor != NULL)
+     {
+       guint dpi_x, dpi_y;
+       HMONITOR hmonitor = MonitorFromWindow (GDK_WINDOW_HWND (window), MONITOR_DEFAULTTONEAREST);
+       p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+-      return ((gdouble)dpi_x) / 96.0f;
++      return (int)(dpi_x / 96.0f);
+     }
+ 
+-  return 1.0;
++  return 1;
+ }
+ 
+ 

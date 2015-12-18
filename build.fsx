@@ -462,6 +462,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0022-include-math-h.patch"
     patch "gtk\\highdpi-25-3.patch"
     patch "gtk\\moar-highdpi-shiz-1.patch"
+    patch "gtk\\highdpi-switch-scale-factor-to-ints.patch"
     //patch "gtk\\0023-highdpi-WIP.patch"
   )
 
