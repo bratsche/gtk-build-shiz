@@ -388,6 +388,7 @@ Target "cairo" <| fun _ ->
   |> from (fun () ->
     //patch "cairo\\cairo-array-vs-struct-initializer.patch"
     patch "cairo\\cairo-scale-factor-win32-1.patch"
+    patch "cairo\\handle-gdk-scale-environment.patch"
   )
 
   let slnDir = Path.Combine(buildDir(), "cairo-1.14.6", "msvc")
