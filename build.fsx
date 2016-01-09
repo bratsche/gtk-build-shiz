@@ -386,9 +386,7 @@ Target "cairo" <| fun _ ->
 
   Path.Combine(buildDir(), "cairo-1.14.6")
   |> from (fun () ->
-    //patch "cairo\\cairo-array-vs-struct-initializer.patch"
-    patch "cairo\\cairo-scale-factor-win32-1.patch"
-    patch "cairo\\handle-gdk-scale-environment.patch"
+    printfn "No Cairo patches"
   )
 
   let slnDir = Path.Combine(buildDir(), "cairo-1.14.6", "msvc")
@@ -412,6 +410,7 @@ Target "pango" <| fun _ ->
   Path.Combine(buildDir(), "pango-1.36.8")
   |> from (fun () ->
     patch "pango\\pango-synthesize-fonts-properly.patch"
+    patch "pango\\pango_win32_device_scale.patch"
   ) |> ignore
 
   let slnDir = Path.Combine(buildDir(), "pango-1.36.8", "build", "win32", "vs12")
