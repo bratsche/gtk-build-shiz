@@ -460,10 +460,8 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0020-dont-affect-zorder-of-window-stack.patch"
     patch "gtk\\0021-register-classw.patch"
     patch "gtk\\0022-include-math-h.patch"
-    patch "gtk\\highdpi-25-3.patch"
-    patch "gtk\\moar-highdpi-shiz-1.patch"
-    patch "gtk\\highdpi-switch-scale-factor-to-ints.patch"
-    //patch "gtk\\0023-highdpi-WIP.patch"
+    patch "gtk\\0022-gtk-draw-child-bg-2.patch"
+    patch "gtk\\0023-gtk-highdpi-2.patch"
   )
 
   let slnDir = Path.Combine(buildDir(), "gtk+-2.24.25", "build", "win32", "vs12")
