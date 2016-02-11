@@ -244,15 +244,15 @@ Target "glib" <| fun _ ->
   install "glib-rel" |> ignore
 
 Target "harfbuzz" <| fun _ ->
-  "http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-0.9.37.tar.bz2"
+  "http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-1.1.3.tar.bz2"
   |> download
   |> extract
 
-  CopyDir (Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
   [Path.Combine("slns", "harfbuzz", "src", "hb-gobject-enums.h"); Path.Combine("slns", "harfbuzz", "src", "rllist.txt")]
-  |> CopyFiles (Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"))
+  |> CopyFiles (Path.Combine(buildDir(), "harfbuzz-1.1.3", "src"))
 
-  Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "harfbuzz.sln")
+  Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32", "harfbuzz.sln")
   |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -261,13 +261,13 @@ Target "harfbuzz" <| fun _ ->
     }
   ) |> ignore
 
-  let releaseDir = Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "Release")
+  let releaseDir = Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32", "libs", "Release")
   [Path.Combine(releaseDir, "libharfbuzz-0.dll"); Path.Combine(releaseDir, "harfbuzz.pdb")]
   |> CopyFiles (Path.Combine(installDir(), "bin"))
 
-  CopyFiles (Path.Combine(installDir(), "include")) (Directory.GetFiles(Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"), "*.h"))
+  CopyFiles (Path.Combine(installDir(), "include")) (Directory.GetFiles(Path.Combine(buildDir(), "harfbuzz-1.1.3", "src"), "*.h"))
 
-  Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
+  Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
   |> CopyFile (Path.Combine(installDir(), "lib"))
 
 Target "atk" <| fun _ ->

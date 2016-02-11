@@ -39,9 +39,10 @@
     <ClCompile Include="..\src\hb-ot-shape-complex-indic-table.cc" />
     <ClCompile Include="..\src\hb-ot-shape-complex-indic.cc" />
     <ClCompile Include="..\src\hb-ot-shape-complex-myanmar.cc" />
-    <ClCompile Include="..\src\hb-ot-shape-complex-sea.cc" />
     <ClCompile Include="..\src\hb-ot-shape-complex-thai.cc" />
     <ClCompile Include="..\src\hb-ot-shape-complex-tibetan.cc" />
+    <ClCompile Include="..\src\hb-ot-shape-complex-use.cc" />
+    <ClCompile Include="..\src\hb-ot-shape-complex-use-table.cc" />
     <ClCompile Include="..\src\hb-ot-shape-fallback.cc" />
     <ClCompile Include="..\src\hb-ot-shape-normalize.cc" />
     <ClCompile Include="..\src\hb-ot-shape.cc" />
@@ -52,6 +53,8 @@
     <ClCompile Include="..\src\hb-shaper.cc" />
     <ClCompile Include="..\src\hb-unicode.cc" />
     <ClCompile Include="..\src\hb-warning.cc" />
+    <ClCompile Include="..\src\hb-ucdn.cc" />
+    <ClCompile Include="..\src\hb-ucdn\ucdn.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6318D4FC-7F92-4FDA-8E6F-ADAD0502F848}</ProjectGuid>
@@ -107,7 +110,7 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)libs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)objs\$(Configuration)\</IntDir>
-    <IncludePath>$(SolutionDir)\..\deps\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\..\deps\include;$(SolutionDir)\..\src\hb-ucdn;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\..\deps\lib;$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
@@ -115,20 +118,20 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)libs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)objs\$(Configuration)\</IntDir>
-    <IncludePath>$(SolutionDir)\..\deps\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\..\deps\include;$(SolutionDir)\..\src\hb-ucdn;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\..\deps\lib;$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)\..\deps\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\..\deps\include;$(SolutionDir)\..\src\hb-ucdn;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\..\deps\lib;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)libs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)objs\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)\..\deps\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\..\deps\include;$(SolutionDir)\..\src\hb-ucdn;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\..\deps\lib;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)libs\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)objs\$(Configuration)\</IntDir>
@@ -138,7 +141,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_GLIB;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -151,7 +154,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_GLIB;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -165,7 +168,7 @@
       </PrecompiledHeader>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_GLIB;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -183,7 +186,7 @@
       <OutputFile>$(OutDir)lib$(TargetName)-0$(TargetExt)</OutputFile>
     </Link>
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..\src
+      <Command>cd $(SolutionDir)..\src
 echo 2&gt; rllist.txt
 
 for %%a in (*.rl) do (
@@ -202,7 +205,7 @@ for /f "tokens=1 delims=." %%b in (rllist.txt) do (
       </PrecompiledHeader>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;HARFBUZZ_EXPORTS;HAVE_GLIB;HAVE_OT;HAVE_FREETYPE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -219,7 +222,7 @@ for /f "tokens=1 delims=." %%b in (rllist.txt) do (
       <ModuleDefinitionFile>harfbuzz.def</ModuleDefinitionFile>
     </Link>
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..\src
+      <Command>cd $(SolutionDir)..\src
 echo 2&gt; rllist.txt
 
 for %%a in (*.rl) do (
