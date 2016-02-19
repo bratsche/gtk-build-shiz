@@ -1,0 +1,16 @@
+diff --git a/pango/fonts.c b/pango/fonts.c
+index 723b7f7..3067d25 100644
+--- a/pango/fonts.c
++++ b/pango/fonts.c
+@@ -1067,6 +1067,11 @@ parse_size (const char *word,
+       if (size_is_absolute)
+ 	*size_is_absolute = end < word + wordlen;
+ 
++#ifdef G_OS_WIN32
++      if (*size_is_absolute)
++        *pango_size *= (int)xam_pango_get_device_scale ();
++#endif
++
+       return TRUE;
+     }
+ 

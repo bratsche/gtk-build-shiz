@@ -411,6 +411,8 @@ Target "pango" <| fun _ ->
   |> from (fun () ->
     patch "pango\\pango-synthesize-fonts-properly.patch"
     patch "pango\\pango_win32_device_scale.patch"
+    //patch "pango\\absolute_size.patch"
+    patch "pango\\win32_markup_font_size.patch"
   ) |> ignore
 
   let slnDir = Path.Combine(buildDir(), "pango-1.36.8", "build", "win32", "vs12")
