@@ -1,0 +1,119 @@
+commit c005019369488fae35a4f0dfc98fb381151670a7
+Author: Cody Russell <cody@jhu.edu>
+Date:   Sat Feb 20 10:51:08 2016 -0600
+
+    [hdpi] Scale cursors
+
+diff --git a/gdk/win32/gdkcursor-win32.c b/gdk/win32/gdkcursor-win32.c
+index 11f32f6..ff2e334 100644
+--- a/gdk/win32/gdkcursor-win32.c
++++ b/gdk/win32/gdkcursor-win32.c
+@@ -63,10 +63,11 @@ typedef struct {
+ static HCURSOR
+ hcursor_from_type (GdkCursorType cursor_type)
+ {
+-  gint i, j, x, y, ofs;
++  gint i, j, x, y, s, ofs;
+   HCURSOR rv;
+   gint w, h;
+   guchar *and_plane, *xor_plane;
++  int scale = 2;
+ 
+   if (cursor_type != GDK_BLANK_CURSOR)
+     {
+@@ -82,8 +83,8 @@ hcursor_from_type (GdkCursorType cursor_type)
+ 	return LoadCursor (NULL, cursors[i].builtin);
+     }
+   
+-  w = GetSystemMetrics (SM_CXCURSOR);
+-  h = GetSystemMetrics (SM_CYCURSOR);
++  w = GetSystemMetrics (SM_CXCURSOR) * scale;
++  h = GetSystemMetrics (SM_CYCURSOR) * scale;
+ 
+   and_plane = g_malloc ((w/8) * h);
+   memset (and_plane, 0xff, (w/8) * h);
+@@ -96,30 +97,32 @@ hcursor_from_type (GdkCursorType cursor_type)
+ #define SET_BIT(v,b)  (v |= (1 << b))
+ #define RESET_BIT(v,b)  (v &= ~(1 << b))
+ 
+-      for (j = 0, y = 0; y < cursors[i].height && y < h ; y++)
+-	{
+-	  ofs = (y * w) / 8;
+-	  j = y * cursors[i].width;
+-	  
+-	  for (x = 0; x < cursors[i].width && x < w ; x++, j++)
+-	    {
+-	      gint pofs = ofs + x / 8;
+-	      guchar data = (cursors[i].data[j/4] & (0xc0 >> (2 * (j%4)))) >> (2 * (3 - (j%4)));
+-	      gint bit = 7 - (j % cursors[i].width) % 8;
+-	      
+-	      if (data)
+-		{
+-		  RESET_BIT (and_plane[pofs], bit);
+-		  if (data == 1)
+-		    SET_BIT (xor_plane[pofs], bit);
+-		}
+-	    }
+-	}
++	  for (s = 0; s < scale; s++) {
++		  for (j = 0, y = 0; y < cursors[i].height && y < h; y++)
++		  {
++			  ofs = (y * w * scale + s) / 8;
++			  j = y * cursors[i].width;
++
++			  for (x = 0; x < cursors[i].width && x < w; x++, j++)
++			  {
++				  gint pofs = ofs + (x * scale + s) / 8;
++				  guchar data = (cursors[i].data[j / 4] & (0xc0 >> (2 * (j % 4)))) >> (2 * (3 - (j % 4)));
++				  gint bit = 7 - (j % cursors[i].width) % 8;
++
++				  if (data)
++				  {
++					  RESET_BIT(and_plane[pofs], bit);
++					  if (data == 1)
++						  SET_BIT(xor_plane[pofs], bit);
++				  }
++			  }
++		  }
++	  }
+ 
+ #undef SET_BIT
+ #undef RESET_BIT
+ 
+-      rv = CreateCursor (_gdk_app_hmodule, cursors[i].hotx, cursors[i].hoty,
++      rv = CreateCursor (_gdk_app_hmodule, cursors[i].hotx * scale, cursors[i].hoty * scale,
+ 			 w, h, and_plane, xor_plane);
+     }
+   else
+@@ -212,8 +215,8 @@ gdk_cursor_new_from_pixmap (GdkPixmap      *source,
+ 			NULL);
+   width = source_impl->width;
+   height = source_impl->height;
+-  cursor_width = GetSystemMetrics (SM_CXCURSOR);
+-  cursor_height = GetSystemMetrics (SM_CYCURSOR);
++  cursor_width = GetSystemMetrics (SM_CXCURSOR) * 2;
++  cursor_height = GetSystemMetrics (SM_CYCURSOR) * 2;
+ 
+   g_return_val_if_fail (width <= cursor_width && height <= cursor_height,
+ 			NULL);
+@@ -653,7 +656,7 @@ gdk_display_get_default_cursor_size (GdkDisplay    *display)
+ {
+   g_return_val_if_fail (display == _gdk_display, 0);
+   
+-  return MIN (GetSystemMetrics (SM_CXCURSOR), GetSystemMetrics (SM_CYCURSOR));
++  return MIN (GetSystemMetrics (SM_CXCURSOR) * 2, GetSystemMetrics (SM_CYCURSOR) * 2);
+ }
+ 
+ void     
+@@ -664,9 +667,9 @@ gdk_display_get_maximal_cursor_size (GdkDisplay *display,
+   g_return_if_fail (display == _gdk_display);
+   
+   if (width)
+-    *width = GetSystemMetrics (SM_CXCURSOR);
++    *width = GetSystemMetrics (SM_CXCURSOR) * 2;
+   if (height)
+-    *height = GetSystemMetrics (SM_CYCURSOR);
++    *height = GetSystemMetrics (SM_CYCURSOR) * 2;
+ }
+ 
+ 

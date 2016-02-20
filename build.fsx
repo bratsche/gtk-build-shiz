@@ -465,6 +465,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0022-gtk-draw-child-bg-2.patch"
     patch "gtk\\0023-gtk-highdpi-8.patch"
     patch "gtk\\0024-fix-root-coords.patch"
+    patch "gtk\\0025-scale-cursors.patch"
   )
 
   let slnDir = Path.Combine(buildDir(), "gtk+-2.24.26", "build", "win32", "vs12")
