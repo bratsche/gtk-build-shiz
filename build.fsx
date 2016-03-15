@@ -440,11 +440,6 @@ Target "gtk" <| fun _ ->
 
   Path.Combine(buildDir(), "gtk+-2.24.28")
   |> from (fun () ->
-    //patch "gtk\\gtk-revert-scrolldc-commit.patch"
-    //patch "gtk\\gtk-bgimg.patch"
-    //patch "gtk\\gtk-accel.patch"
-    //patch "gtk\\gtk-multimonitor.patch"
-
     patch "gtk\\0001-aborted-drag-should-leave.patch"
     patch "gtk\\0002-fix-dnd-in-autohide-pads.patch"
     patch "gtk\\0003-choose-ime-based-on-locale.patch"
