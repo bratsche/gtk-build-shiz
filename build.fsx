@@ -458,7 +458,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0016-round-scale-up-to-2-0.patch"
     patch "gtk\\0017-combobox-rendering.patch"
     patch "gtk\\0018-dead-key-fixes.patch"
-    patch "gtk\\0019-fix-keyboard-input.patch"
+    //patch "gtk\\0019-fix-keyboard-input.patch"
     patch "gtk\\0020-dont-affect-zorder-of-window-stack.patch"
     patch "gtk\\0021-register-classw.patch"
     patch "gtk\\0022-include-math-h.patch"
