@@ -14,7 +14,7 @@ open Fake.StringHelper
 open Fake.Git
 open FSharp.Data
 
-let mutable originDir = "C:\\gtk-build-shiz"
+let originDir = FileSystemHelper.currentDirectory
 
 // Some directories
 // ------------------------------------------------------
@@ -61,6 +61,13 @@ let download (url: string) =
 
     file
 
+let do7z =
+    let path =
+        ["C:\\Program Files\\7-Zip\\7z.exe"; "C:\\Program Files (x86)\\7-Zip\\7z.exe"]
+        |> List.find (File.Exists)
+
+    fun args -> sh path args
+
 let extract (path:string) =
   let file = Path.Combine(srcDir(), path)
 
@@ -74,13 +81,13 @@ let extract (path:string) =
 
       match file with
       | x when Regex.Match(x, "\.7z$").Success ->
-          sprintf "x %s -o.\\build\\win32" file
-          |> sh "C:\Program Files\7-Zip\7z.exe"
+          sprintf "x \"%s\" -o.\\build\\win32" file
+          |> do7z
           |> ignore
       | x when Regex.Match(x, "\.tar\.[gx]z$").Success || Regex.Match(x, "\.tar\.bz2$").Success ->
           buildDir()
           |> from (fun () ->
-              sprintf "xf %s" (mingwify(file))
+              sprintf "xf \"%s\"" (mingwify(file))
               |> sh "tar"
               |> ignore
           )
@@ -95,14 +102,13 @@ let install (path) =
     copyRecursive inDi outDi true
 
 let patch filename =
-  sprintf "-p1 -i %s" (Path.Combine(patchDir(), filename))
+  sprintf "-p1 -i \"%s\"" (Path.Combine(patchDir(), filename))
   |> sh "C:\\msys32\\usr\\bin\\patch.exe"
 
 
 // Targets
 // --------------------------------------------------------
 Target "prep" <| fun _ ->
-    originDir <- pwd()
     ensureDirectory (buildDir())
     ensureDirectory (installDir())
     ensureDirectory (binDir())
@@ -435,11 +441,6 @@ Target "gtk" <| fun _ ->
 
   Path.Combine(buildDir(), "gtk+-2.24.27")
   |> from (fun () ->
-    //patch "gtk\\gtk-revert-scrolldc-commit.patch"
-    //patch "gtk\\gtk-bgimg.patch"
-    //patch "gtk\\gtk-accel.patch"
-    //patch "gtk\\gtk-multimonitor.patch"
-
     patch "gtk\\0001-aborted-drag-should-leave.patch"
     patch "gtk\\0002-fix-dnd-in-autohide-pads.patch"
     patch "gtk\\0003-choose-ime-based-on-locale.patch"
@@ -482,6 +483,28 @@ Target "gtk" <| fun _ ->
   )
 
   install "gtk-2.24.25-rel" |> ignore
+
+Target "xamarin-gtk-theme" <| fun _ ->
+  
+  let checkoutDir = Path.Combine(buildDir(), "xamarin-gtk-theme")
+
+  if not (Directory.Exists(checkoutDir)) then
+      Git.Repository.clone (buildDir()) "https://github.com/mono/xamarin-gtk-theme.git" "xamarin-gtk-theme"
+
+  let slnDir = Path.Combine(buildDir(), "xamarin-gtk-theme", "build", "win32", "vs12")
+  Directory.GetFiles(Path.Combine("slns", "xamarin-gtk-theme", "build", "win32", "vs12"), "*.*")
+  |> CopyFiles slnDir
+
+  Path.Combine(slnDir, "libxamarin.vcxproj") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release"
+                      ]
+    }
+  )
+  
+  Path.Combine(slnDir, "Release", "bin", "libxamarin.dll")
+  |> CopyFile (Path.Combine(libDir(), "gtk-2.0", "2.10.0", "engines"))
 
 Target "zlib" <| fun _ ->
   "zlib-1.2.8.7z" |> extract
@@ -575,6 +598,7 @@ Target "BuildAll" <| fun _ ->
 "libxml2" <== ["win-iconv"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "gtk"]
+"xamarin-gtk-theme" <== ["gtk"]
+"BuildAll" <== ["prep"; "gtk"; "xamarin-gtk-theme"]
 
 RunTargetOrDefault "BuildAll"
