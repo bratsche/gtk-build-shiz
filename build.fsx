@@ -14,7 +14,7 @@ open Fake.StringHelper
 open Fake.Git
 open FSharp.Data
 
-let mutable originDir = "C:\\gtk-build-shiz"
+let originDir = FileSystemHelper.currentDirectory
 
 // Some directories
 // ------------------------------------------------------
@@ -109,7 +109,6 @@ let patch filename =
 // Targets
 // --------------------------------------------------------
 Target "prep" <| fun _ ->
-    originDir <- pwd()
     ensureDirectory (buildDir())
     ensureDirectory (installDir())
     ensureDirectory (binDir())
