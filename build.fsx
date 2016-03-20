@@ -479,6 +479,28 @@ Target "gtk" <| fun _ ->
 
   install "gtk-rel" |> ignore
 
+Target "xamarin-gtk-theme" <| fun _ ->
+  
+  let checkoutDir = Path.Combine(buildDir(), "xamarin-gtk-theme")
+
+  if not (Directory.Exists(checkoutDir)) then
+      Git.Repository.clone (buildDir()) "https://github.com/mono/xamarin-gtk-theme.git" "xamarin-gtk-theme"
+
+  let slnDir = Path.Combine(buildDir(), "xamarin-gtk-theme", "build", "win32", "vs12")
+  Directory.GetFiles(Path.Combine("slns", "xamarin-gtk-theme", "build", "win32", "vs12"), "*.*")
+  |> CopyFiles slnDir
+
+  Path.Combine(slnDir, "libxamarin.vcxproj") |> MSBuildHelper.build (fun parameters ->
+    { parameters with Targets = ["Build"]
+                      Properties = ["Platform", "Win32"
+                                    "Configuration", "Release"
+                      ]
+    }
+  )
+  
+  Path.Combine(slnDir, "Release", "bin", "libxamarin.dll")
+  |> CopyFile (Path.Combine(libDir(), "gtk-2.0", "2.10.0", "engines"))
+
 Target "zlib" <| fun _ ->
   "zlib-1.2.8.7z" |> extract
 
@@ -571,6 +593,7 @@ Target "BuildAll" <| fun _ ->
 "libxml2" <== ["win-iconv"]
 "pango" <== ["cairo"; "harfbuzz"]
 "pixman" <== ["libpng"]
-"BuildAll" <== ["prep"; "gtk"]
+"xamarin-gtk-theme" <== ["gtk"]
+"BuildAll" <== ["prep"; "gtk"; "xamarin-gtk-theme"]
 
 RunTargetOrDefault "BuildAll"
