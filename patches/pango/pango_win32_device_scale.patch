@@ -1,0 +1,147 @@
+diff --git a/pango/pango-utils.c b/pango/pango-utils.c
+index 3dfcebd..2d3d07b 100644
+--- a/pango/pango-utils.c
++++ b/pango/pango-utils.c
+@@ -1221,3 +1221,63 @@ _pango_shape_get_extents (gint              n_chars,
+     }
+ }
+ 
++#ifdef G_OS_WIN32
++#ifndef MONITOR_DPI_TYPE
++typedef enum MONITOR_DPI_TYPE {
++  MDT_EFFECTIVE_DPI = 0,
++  MDT_ANGULAR_DPI   = 1,
++  MDT_RAW_DPI       = 2,
++  MDT_DEFAULT       = MDT_EFFECTIVE_DPI
++} MONITOR_DPI_TYPE;
++#endif /* MONITOR_DPI_TYPE */
++
++typedef HRESULT(WINAPI *t_GetDpiForMonitor)(HMONITOR          hmonitor,
++                                            MONITOR_DPI_TYPE  dpi_type,
++                                            UINT             *dpi_x,
++                                            UINT             *dpi_y);
++
++static t_GetDpiForMonitor p_GetDpiForMonitor = NULL;
++
++static BOOL CALLBACK
++get_first_monitor_scale_factor (HMONITOR hmonitor,
++                                HDC      hdc,
++                                LPRECT   rect,
++                                LPARAM   data)
++{
++  UINT dpi_x, dpi_y;
++  double *scale = (double *)data;
++
++  if (!p_GetDpiForMonitor)
++    {
++      p_GetDpiForMonitor = (t_GetDpiForMonitor)GetProcAddress (GetModuleHandleA ("user32.dll"), "GetDpiForMonitorInternal");
++    }
++
++  if (p_GetDpiForMonitor != NULL)
++    {
++      p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
++      *scale = ((double) dpi_x) / 96.0f;
++    }
++
++  return FALSE;
++}
++
++double
++xam_pango_get_device_scale ()
++{
++  double scale = 1.0;
++
++  EnumDisplayMonitors (NULL, NULL, get_first_monitor_scale_factor, (LPARAM)&scale);
++
++  return scale;
++}
++
++#else /* G_OS_WIN32 */
++
++double
++xam_pango_get_device_scale ()
++{
++  return 1.0;
++}
++
++#endif
++
+diff --git a/pango/pango-utils.h b/pango/pango-utils.h
+index 9bac4f0..fa651b2 100644
+--- a/pango/pango-utils.h
++++ b/pango/pango-utils.h
+@@ -184,6 +184,8 @@ const char * pango_version_check (int required_major,
+                                   int required_minor,
+                                   int required_micro) G_GNUC_CONST;
+ 
++double xam_pango_get_device_scale ();
++
+ G_END_DECLS
+ 
+ #endif /* __PANGO_UTILS_H__ */
+diff --git a/pango/pango.def b/pango/pango.def
+index f34fae2..3cd47f0 100644
+--- a/pango/pango.def
++++ b/pango/pango.def
+@@ -404,3 +404,4 @@ EXPORTS
+ 	pango_version_string
+ 	pango_weight_get_type
+ 	pango_wrap_mode_get_type
++	xam_pango_get_device_scale
+diff --git a/pango/pangocairo-font.c b/pango/pangocairo-font.c
+index 9728101..d9fe6ee 100644
+--- a/pango/pangocairo-font.c
++++ b/pango/pangocairo-font.c
+@@ -599,14 +599,22 @@ _pango_cairo_font_private_initialize (PangoCairoFontPrivate      *cf_priv,
+ 			 &gravity_matrix);
+ 
+   if (pango_ctm)
+-    cairo_matrix_init (&cf_priv->data->ctm,
+-		       pango_ctm->xx,
+-		       pango_ctm->yx,
+-		       pango_ctm->xy,
+-		       pango_ctm->yy,
+-		       0., 0.);
++    {
++      double device_scale = xam_pango_get_device_scale ();
++
++      cairo_matrix_init (&cf_priv->data->ctm,
++                         pango_ctm->xx,
++                         pango_ctm->yx,
++                         pango_ctm->xy,
++                         pango_ctm->yy,
++                         0., 0.);
++
++      cairo_matrix_scale (&cf_priv->data->ctm, device_scale, device_scale);
++    }
+   else
+-    cairo_matrix_init_identity (&cf_priv->data->ctm);
++    {
++      cairo_matrix_init_identity (&cf_priv->data->ctm);
++    }
+ 
+   cf_priv->data->options = cairo_font_options_copy (font_options);
+   cf_priv->is_hinted = cairo_font_options_get_hint_metrics (font_options) != CAIRO_HINT_METRICS_OFF;
+diff --git a/pango/pangocairo-win32font.c b/pango/pangocairo-win32font.c
+index 2a8e9ed..9620c50 100644
+--- a/pango/pangocairo-win32font.c
++++ b/pango/pangocairo-win32font.c
+@@ -210,6 +210,7 @@ _pango_cairo_win32_font_new (PangoCairoWin32FontMap     *cwfontmap,
+   GSList *tmp_list;
+ #endif
+   cairo_matrix_t font_matrix;
++  double device_scale;
+ 
+   g_return_val_if_fail (PANGO_IS_CAIRO_WIN32_FONT_MAP (cwfontmap), NULL);
+ 
+@@ -271,7 +272,10 @@ _pango_cairo_win32_font_new (PangoCairoWin32FontMap     *cwfontmap,
+ 
+   cairo_matrix_init_identity (&font_matrix);
+ 
++  device_scale = xam_pango_get_device_scale ();
++
+   cairo_matrix_scale (&font_matrix, size, size);
++  cairo_matrix_scale (&font_matrix, 1.0 / device_scale, 1.0 / device_scale);
+ 
+   _pango_cairo_font_private_initialize (&cwfont->cf_priv,
+ 					(PangoCairoFont *) cwfont,

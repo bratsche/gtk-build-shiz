@@ -1,0 +1,1860 @@
+commit 9098f3d69277a497c252f649c337a3c91e20b763
+Author: Cody Russell <cody@jhu.edu>
+Date:   Fri Feb 12 17:41:44 2016 -0600
+
+    Update to highdpi
+
+diff --git a/gdk/gdkcairo.c b/gdk/gdkcairo.c
+index 274a122..8ed15f8 100644
+--- a/gdk/gdkcairo.c
++++ b/gdk/gdkcairo.c
+@@ -55,10 +55,14 @@ gdk_cairo_create (GdkDrawable *drawable)
+   static const cairo_user_data_key_t key;
+   cairo_surface_t *surface;
+   cairo_t *cr;
++  int scale;
+     
+   g_return_val_if_fail (GDK_IS_DRAWABLE (drawable), NULL);
+ 
++  scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
++
+   surface = _gdk_drawable_ref_cairo_surface (drawable);
++  cairo_surface_set_device_scale (surface, scale, scale);
+   cr = cairo_create (surface);
+   cairo_set_user_data (cr, &gdk_cairo_drawable_pointer, drawable, NULL);
+ 
+diff --git a/gdk/gdkwindow.c b/gdk/gdkwindow.c
+index 9b9d727..cda5826 100644
+--- a/gdk/gdkwindow.c
++++ b/gdk/gdkwindow.c
+@@ -2754,6 +2754,7 @@ gdk_window_begin_implicit_paint (GdkWindow *window, GdkRectangle *rect)
+ {
+   GdkWindowObject *private = (GdkWindowObject *)window;
+   GdkWindowPaint *paint;
++  int scale;
+ 
+   g_assert (gdk_window_has_impl (private));
+ 
+@@ -2778,6 +2779,8 @@ gdk_window_begin_implicit_paint (GdkWindow *window, GdkRectangle *rect)
+   if (private->window_type == GDK_WINDOW_FOREIGN)
+     return FALSE;
+ 
++  scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
++
+   paint = g_new (GdkWindowPaint, 1);
+   paint->region = gdk_region_new (); /* Empty */
+   paint->x_offset = rect->x;
+@@ -2787,7 +2790,7 @@ gdk_window_begin_implicit_paint (GdkWindow *window, GdkRectangle *rect)
+   paint->surface = NULL;
+   paint->pixmap =
+     gdk_pixmap_new (window,
+-		    MAX (rect->width, 1), MAX (rect->height, 1), -1);
++		    MAX (rect->width, 1) * scale, MAX (rect->height, 1) * scale, -1);
+ 
+   private->implicit_paint = paint;
+ 
+@@ -3012,8 +3015,13 @@ gdk_window_begin_paint_region (GdkWindow       *window,
+   paint->surface = _gdk_drawable_ref_cairo_surface (paint->pixmap);
+ 
+   if (paint->surface)
+-    cairo_surface_set_device_offset (paint->surface,
+-				     -paint->x_offset, -paint->y_offset);
++    {
++	  double scale = gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++	  cairo_surface_set_device_scale (paint->surface, scale, scale);
++
++	  cairo_surface_set_device_offset(paint->surface,
++                                       -paint->x_offset * scale, -paint->y_offset * scale);
++    }
+ 
+   for (list = private->paint_stack; list != NULL; list = list->next)
+     {
+@@ -11244,14 +11252,18 @@ gdk_window_create_similar_surface (GdkWindow *     window,
+                                    int             height)
+ {
+   cairo_surface_t *window_surface, *surface;
++  double sx, sy;
+ 
+   g_return_val_if_fail (GDK_IS_WINDOW (window), NULL);
+-  
++
+   window_surface = _gdk_drawable_ref_cairo_surface (window);
++  sx = sy = 1;
++  cairo_surface_get_device_scale (window_surface, &sx, &sy);
+ 
+   surface = cairo_surface_create_similar (window_surface,
+                                           content,
+                                           width, height);
++  cairo_surface_set_device_scale (surface, sx, sy);
+ 
+   cairo_surface_destroy (window_surface);
+ 
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index 910c8cc..223e675 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -91,6 +91,8 @@ enum_monitor (HMONITOR hmonitor,
+   gint *index = (gint *) data;
+   GdkWin32Monitor *monitor;
+ 
++  const char *scale_str;
++
+   g_assert (*index < _gdk_num_monitors);
+ 
+   monitor = _gdk_monitors + *index;
+@@ -112,7 +114,13 @@ enum_monitor (HMONITOR hmonitor,
+   monitor->rect.width = monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+   monitor->rect.height = monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+ 
+-  if (p_GetDpiForMonitor != NULL)
++  scale_str = g_getenv ("GDK_SCALE");
++
++  if (scale_str)
++    {
++      monitor->scale_factor = atoi (scale_str);
++    }
++  else if (p_GetDpiForMonitor != NULL)
+     {
+       guint dpi_x, dpi_y;
+       p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+@@ -176,8 +184,8 @@ _gdk_monitor_init (void)
+   /* Calculate offset */
+   for (i = 0; i < _gdk_num_monitors; i++)
+     {
+-      _gdk_offset_x = MAX (_gdk_offset_x, -_gdk_monitors[i].rect.x);
+-      _gdk_offset_y = MAX (_gdk_offset_y, -_gdk_monitors[i].rect.y);
++      _gdk_offset_x = MAX (_gdk_offset_x, -_gdk_monitors[i].rect.x / _gdk_monitors[i].scale_factor);
++      _gdk_offset_y = MAX (_gdk_offset_y, -_gdk_monitors[i].rect.y / _gdk_monitors[i].scale_factor);
+     }
+   GDK_NOTE (MISC, g_print ("Multi-monitor offset: (%d,%d)\n",
+ 			   _gdk_offset_x, _gdk_offset_y));
+diff --git a/gdk/win32/gdkdrawable-win32.c b/gdk/win32/gdkdrawable-win32.c
+index f3beada..149c5eb 100644
+--- a/gdk/win32/gdkdrawable-win32.c
++++ b/gdk/win32/gdkdrawable-win32.c
+@@ -304,6 +304,7 @@ render_line_horizontal (GdkGCWin32 *gcwin32,
+   int n = 0;
+   const int pen_width = MAX (gcwin32->pen_width, 1);
+   const int _x1 = x1;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   g_assert (gcwin32->pen_dashes);
+ 
+@@ -317,9 +318,9 @@ render_line_horizontal (GdkGCWin32 *gcwin32,
+ 
+       if (n % 2 == 0 && x1 + len > _x1)
+         if (!GDI_CALL (PatBlt, (gcwin32->hdc, 
+-				x1 < _x1 ? _x1 : x1, 
+-				y - pen_width / 2, 
+-				len, pen_width, 
++				(x1 < _x1 ? _x1 : x1) * scale,
++				(y - pen_width / 2) * scale,
++				len * scale, pen_width * scale,
+ 				rop2_to_patblt_rop (gcwin32->rop2))))
+ 	  return FALSE;
+ 
+@@ -341,8 +342,8 @@ render_line_horizontal (GdkGCWin32 *gcwin32,
+ 	    len = x2 - x1;
+ 
+ 	  if (n % 2)
+-	    if (!GDI_CALL (PatBlt, (gcwin32->hdc, x1, y - pen_width / 2,
+-				    len, pen_width,
++	    if (!GDI_CALL (PatBlt, (gcwin32->hdc, x1 * scale, (y - pen_width / 2) * scale,
++				    len * scale, pen_width * scale,
+ 				    rop2_to_patblt_rop (gcwin32->rop2))))
+ 	      return FALSE;
+ 
+@@ -364,6 +365,7 @@ render_line_vertical (GdkGCWin32 *gcwin32,
+   int n;
+   const int pen_width = MAX (gcwin32->pen_width, 1);
+   const int _y1 = y1;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   g_assert (gcwin32->pen_dashes);
+ 
+@@ -374,9 +376,9 @@ render_line_vertical (GdkGCWin32 *gcwin32,
+       if (y1 + len > y2)
+         len = y2 - y1;
+       if (n % 2 == 0 && y1 + len > _y1)
+-        if (!GDI_CALL (PatBlt, (gcwin32->hdc, x - pen_width / 2, 
+-				y1 < _y1 ? _y1 : y1, 
+-				pen_width, len, 
++        if (!GDI_CALL (PatBlt, (gcwin32->hdc, (x - pen_width / 2) * scale,
++				(y1 < _y1 ? _y1 : y1) * scale,
++				pen_width * scale, len * scale,
+ 				rop2_to_patblt_rop (gcwin32->rop2))))
+ 	  return FALSE;
+ 
+@@ -397,8 +399,8 @@ render_line_vertical (GdkGCWin32 *gcwin32,
+ 	  if (y1 + len > y2)
+ 	    len = y2 - y1;
+ 	  if (n % 2)
+-	    if (!GDI_CALL (PatBlt, (gcwin32->hdc, x - pen_width / 2, y1,
+-				    pen_width, len,
++	    if (!GDI_CALL (PatBlt, (gcwin32->hdc, (x - pen_width / 2) * scale, y1 * scale,
++				    pen_width * scale, len * scale,
+ 				    rop2_to_patblt_rop (gcwin32->rop2))))
+ 	      return FALSE;
+ 
+@@ -425,6 +427,7 @@ draw_tiles_lowlevel (HDC  dest,
+ 		     gint tile_height)
+ {
+   gint x, y;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   GDK_NOTE (DRAW, g_print ("draw_tiles_lowlevel: %p %+d%+d tile=%p:%dx%d@%+d%+d %dx%d\n",
+ 			   dest,
+@@ -450,11 +453,11 @@ draw_tiles_lowlevel (HDC  dest,
+ 		  gint src_x = MAX (0, dest_x - x);
+ 		  gint src_y = MAX (0, dest_y - y);
+ 
+-		  if (!GDI_CALL (BitBlt, (dest, x + src_x, y + src_y,
+-					  MIN (tile_width, dest_x + width - (x + src_x)),
+-					  MIN (tile_height, dest_y + height - (y + src_y)),
++		  if (!GDI_CALL (BitBlt, (dest, (x + src_x) * scale, (y + src_y) * scale,
++					  MIN (tile_width, dest_x + width - (x + src_x)) * scale,
++					  MIN (tile_height, dest_y + height - (y + src_y)) * scale,
+ 					  tile,
+-					  src_x, src_y,
++					  src_x * scale, src_y * scale,
+ 					  rop3)))
+ 		    return;
+ 		}
+@@ -511,6 +514,7 @@ generic_draw (GdkDrawable    *drawable,
+   HDC hdc;
+   va_list args;
+   GdkFill fill_style = _gdk_gc_get_fill (gc);
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   va_start (args, region);
+ 
+@@ -531,13 +535,13 @@ generic_draw (GdkDrawable    *drawable,
+       GdkGCValuesMask drawing_mask = GDK_GC_FOREGROUND;
+       gint ts_x_origin = 0, ts_y_origin = 0;
+ 
+-      gint width = region->extents.x2 - region->extents.x1;
+-      gint height = region->extents.y2 - region->extents.y1;
++      gint width = (region->extents.x2 - region->extents.x1) * scale;
++      gint height = (region->extents.y2 - region->extents.y1) * scale;
+ 
+       GdkPixmap *mask_pixmap =
+-	gdk_pixmap_new (drawable, width, height, 1);
++	gdk_pixmap_new (drawable, width * scale, height * scale, 1);
+       GdkPixmap *tile_pixmap =
+-	gdk_pixmap_new (drawable, width, height, -1);
++	gdk_pixmap_new (drawable, width * scale, height * scale, -1);
+       GdkPixmap *stipple_bitmap = NULL;
+       GdkColor fg;
+       
+@@ -667,13 +671,13 @@ generic_draw (GdkDrawable    *drawable,
+ 	   * Reading bottom-up: 11100010 = 0xE2. PSDK docs say this is
+ 	   * known as DSPDxax, with hex value 0x00E20746.
+ 	   */
+-	  GDI_CALL (BitBlt, (tile_hdc, 0, 0, width, height,
++	  GDI_CALL (BitBlt, (tile_hdc, 0, 0, width * scale, height * scale,
+ 			     stipple_hdc, 0, 0, ROP3_DSPDxax));
+ 
+ 	  if (fill_style == GDK_STIPPLED)
+ 	    {
+ 	      /* Punch holes in mask where stipple is zero */
+-	      GDI_CALL (BitBlt, (mask_hdc, 0, 0, width, height,
++	      GDI_CALL (BitBlt, (mask_hdc, 0, 0, width * scale, height * scale,
+ 				 stipple_hdc, 0, 0, SRCAND));
+ 	    }
+ 
+@@ -689,7 +693,7 @@ generic_draw (GdkDrawable    *drawable,
+        */
+ 
+       GDI_CALL (MaskBlt, (hdc, region->extents.x1, region->extents.y1,
+-			  width, height,
++			  width * scale, height * scale,
+ 			  tile_hdc, 0, 0,
+ 			  GDK_PIXMAP_HBITMAP (mask_pixmap), 0, 0,
+ 			  MAKEROP4 (rop2_to_rop3 (gcwin32->rop2), ROP3_D)));
+@@ -741,16 +745,20 @@ draw_rectangle (GdkGCWin32 *gcwin32,
+   gint y;
+   gint width;
+   gint height;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   filled = va_arg (args, gboolean);
+   x = va_arg (args, gint);
+   y = va_arg (args, gint);
+-  width = va_arg (args, gint);
+-  height = va_arg (args, gint);
++  width = va_arg(args, gint) * scale;
++  height = va_arg (args, gint) * scale;
+   
+   x -= x_offset;
+   y -= y_offset;
+ 
++  x *= scale;
++  y *= scale;
++
+   if (!filled && MUST_RENDER_DASHES_MANUALLY (gcwin32))
+     {
+       render_line_vertical (gcwin32, x, y, y+height+1) &&
+@@ -767,7 +775,7 @@ draw_rectangle (GdkGCWin32 *gcwin32,
+       if (old_pen_or_brush == NULL)
+ 	WIN32_GDI_FAILED ("SelectObject");
+       else
+-	GDI_CALL (Rectangle, (hdc, x, y, x+width+1, y+height+1));
++	GDI_CALL (Rectangle, (hdc, x, y, (x+width+1), (y+height+1)));
+ 
+       if (old_pen_or_brush != NULL)
+ 	GDI_CALL (SelectObject, (hdc, old_pen_or_brush));
+@@ -1128,7 +1136,7 @@ gdk_win32_draw_drawable (GdkDrawable *drawable,
+ 
+   _gdk_win32_blit (FALSE, (GdkDrawableImplWin32 *) drawable,
+ 		   gc, src, xsrc, ysrc,
+-		   xdest, ydest, width, height);
++		   xdest, ydest, width, height, FALSE);
+ }
+ 
+ static void
+@@ -1172,6 +1180,7 @@ draw_segments (GdkGCWin32 *gcwin32,
+   GdkSegment *segs;
+   gint nsegs;
+   gint i;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   segs = va_arg (args, GdkSegment *);
+   nsegs = va_arg (args, gint);
+@@ -1229,8 +1238,8 @@ draw_segments (GdkGCWin32 *gcwin32,
+ 	  int x2 = ps->x2, y2 = ps->y2;
+ 
+ 	  GDK_NOTE (DRAW, g_print (" +%d+%d..+%d+%d", x1, y1, x2, y2));
+-	  GDI_CALL (MoveToEx, (hdc, x1, y1, NULL)) &&
+-	    GDI_CALL (LineTo, (hdc, x2, y2));
++	  GDI_CALL (MoveToEx, (hdc, x1 * scale, y1 * scale, NULL)) &&
++	    GDI_CALL (LineTo, (hdc, x2 * scale, y2 * scale));
+ 	}
+ 
+       GDK_NOTE (DRAW, g_print ("\n"));
+@@ -1396,13 +1405,15 @@ blit_from_pixmap (gboolean              use_fg_bg,
+ 		  gint         	      	xdest,
+ 		  gint         	      	ydest,
+ 		  gint         	      	width,
+-		  gint         	      	height)
++		  gint         	      	height,
++		  gboolean              stretch)
+ {
+   GdkGCWin32 *gcwin32 = GDK_GC_WIN32 (gc);
+   HDC srcdc;
+   HBITMAP holdbitmap;
+   RGBQUAD oldtable[256], newtable[256];
+   COLORREF bg, fg;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   gint newtable_size = 0, oldtable_size = 0;
+   gboolean ok = TRUE;
+@@ -1500,13 +1511,28 @@ blit_from_pixmap (gboolean              use_fg_bg,
+ 		ok = FALSE;
+ 	    }
+ 	}
+-      
++
+       if (ok)
+-	if (!BitBlt (hdc, xdest, ydest, width, height,
+-		     srcdc, xsrc, ysrc, rop2_to_rop3 (gcwin32->rop2)) &&
+-	    GetLastError () != ERROR_INVALID_HANDLE)
+-	  WIN32_GDI_FAILED ("BitBlt");
+-      
++        {
++          if (!stretch)
++            {
++              if (!BitBlt (hdc, xdest * scale, ydest * scale, width * scale, height * scale,
++                           srcdc, xsrc * scale, ysrc * scale, rop2_to_rop3(gcwin32->rop2)) &&
++                  GetLastError() != ERROR_INVALID_HANDLE)
++                {
++                  WIN32_GDI_FAILED("BitBlt");
++                }
++            }
++          else
++            {
++              if (!StretchBlt(hdc, xdest * scale, ydest * scale, width * scale, height * scale,
++                  srcdc, xsrc, ysrc, width, height, rop2_to_rop3(gcwin32->rop2)) && GetLastError() != ERROR_INVALID_HANDLE)
++                {
++                  WIN32_GDI_FAILED("StretchBlt");
++                }
++            }
++        }
++
+       /* Restore source's color table if necessary */
+       if (ok && newtable_size > 0 && oldtable_size > 0)
+ 	{
+@@ -1536,6 +1562,7 @@ blit_inside_drawable (HDC                   hdc,
+ 
+ {
+   GDK_NOTE (DRAW, g_print ("blit_inside_drawable\n"));
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   if GDK_IS_WINDOW_IMPL_WIN32 (src)
+     {
+@@ -1544,36 +1571,29 @@ blit_inside_drawable (HDC                   hdc,
+        * scrolling a window that is partially obscured by another window. For
+        * example, GIMP's toolbox being over the editor window. */
+ 
+-      RECT emptyRect, clipRect;
++      RECT scrollRect, emptyRect;
+       HRGN updateRgn;
+-      GdkRegion *update_region;
+ 
+-      clipRect.left = xdest;
+-      clipRect.top = ydest;
+-      clipRect.right = xdest + width;
+-      clipRect.bottom = ydest + height;
++      scrollRect.left = MIN (xsrc, xdest) * scale;
++      scrollRect.top = MIN (ysrc, ydest) * scale;
++      scrollRect.right = MAX (xsrc + width + 1, xdest + width + 1) * scale;
++      scrollRect.bottom = MAX (ysrc + height + 1, ydest + height + 1) * scale;
+ 
+       SetRectEmpty (&emptyRect);
+       updateRgn = CreateRectRgnIndirect (&emptyRect);
+ 
+-      if (!ScrollDC (hdc, xdest - xsrc, ydest - ysrc, NULL, &clipRect, updateRgn, NULL))
++      if (!ScrollDC (hdc, (xdest - xsrc) * scale, (ydest - ysrc) * scale, &scrollRect, NULL, updateRgn, NULL))
+         WIN32_GDI_FAILED ("ScrollDC");
+-      else
+-	{
+-	  GdkDrawable *wrapper = src->wrapper;
+-	  update_region = _gdk_win32_hrgn_to_region (updateRgn);
+-	  if (!gdk_region_empty (update_region))
+-	    _gdk_window_invalidate_for_expose (GDK_WINDOW (wrapper), update_region);
+-	  gdk_region_destroy (update_region);
+-	}
++      else if (!InvalidateRgn (src->handle, updateRgn, FALSE))
++        WIN32_GDI_FAILED ("InvalidateRgn");
+ 
+       if (!DeleteObject (updateRgn))
+         WIN32_GDI_FAILED ("DeleteObject");
+     }
+   else
+     {
+-      GDI_CALL (BitBlt, (hdc, xdest, ydest, width, height,
+-                         hdc, xsrc, ysrc, rop2_to_rop3 (gcwin32->rop2)));
++      GDI_CALL (BitBlt, (hdc, xdest * scale, ydest * scale, width * scale, height * scale,
++                         hdc, xsrc * scale, ysrc * scale, rop2_to_rop3 (gcwin32->rop2)));
+     }
+ }
+ 
+@@ -1591,6 +1611,7 @@ blit_from_window (HDC                   hdc,
+   HDC srcdc;
+   HPALETTE holdpal = NULL;
+   GdkColormap *cmap = gdk_colormap_get_system ();
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   GDK_NOTE (DRAW, g_print ("blit_from_window\n"));
+ 
+@@ -1614,8 +1635,8 @@ blit_from_window (HDC                   hdc,
+ 		  g_print ("blit_from_window: realized %d\n", k));
+     }
+   
+-  GDI_CALL (BitBlt, (hdc, xdest, ydest, width, height,
+-		     srcdc, xsrc, ysrc, rop2_to_rop3 (gcwin32->rop2)));
++  GDI_CALL (BitBlt, (hdc, xdest * scale, ydest * scale, width * scale, height * scale,
++		     srcdc, xsrc * scale, ysrc * scale, rop2_to_rop3 (gcwin32->rop2)));
+   
+   if (holdpal != NULL)
+     GDI_CALL (SelectPalette, (srcdc, holdpal, FALSE));
+@@ -1633,14 +1654,16 @@ _gdk_win32_blit (gboolean              use_fg_bg,
+ 		 gint        	       xdest,
+ 		 gint        	       ydest,
+ 		 gint        	       width,
+-		 gint        	       height)
++		 gint        	       height,
++		 gboolean              stretch)
+ {
+   HDC hdc;
+   HRGN src_rgn, draw_rgn, outside_rgn;
+   RECT r;
+   GdkDrawableImplWin32 *src_impl = NULL;
+   gint src_width, src_height;
+-  
++  int scale = (int)gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++
+   GDK_NOTE (DRAW, g_print ("_gdk_win32_blit: src:%s %dx%d@%+d%+d\n"
+ 			   "                 dst:%s @%+d%+d use_fg_bg=%d\n",
+ 			   _gdk_win32_drawable_description (src),
+@@ -1697,13 +1720,13 @@ _gdk_win32_blit (gboolean              use_fg_bg,
+ 
+   gdk_drawable_get_size (src_impl->wrapper, &src_width, &src_height);
+ 
+-  if ((src_rgn = CreateRectRgn (0, 0, src_width + 1, src_height + 1)) == NULL)
++  if ((src_rgn = CreateRectRgn (0, 0, (src_width + 1) * scale, (src_height + 1) * scale)) == NULL)
+     {
+       WIN32_GDI_FAILED ("CreateRectRgn");
+     }
+-  else if ((draw_rgn = CreateRectRgn (xsrc, ysrc,
+-				      xsrc + width + 1,
+-				      ysrc + height + 1)) == NULL)
++  else if ((draw_rgn = CreateRectRgn (xsrc * scale, ysrc * scale,
++				      (xsrc + width + 1) * scale,
++				      (ysrc + height + 1) * scale)) == NULL)
+     {
+       WIN32_GDI_FAILED ("CreateRectRgn");
+     }
+@@ -1726,7 +1749,7 @@ _gdk_win32_blit (gboolean              use_fg_bg,
+ 	    WIN32_GDI_FAILED ("CombineRgn");
+ 	  else if (comb != NULLREGION)
+ 	    {
+-	      OffsetRgn (outside_rgn, xdest, ydest);
++	      OffsetRgn (outside_rgn, xdest * scale, ydest * scale);
+ 	      GDK_NOTE (DRAW, (GetRgnBox (outside_rgn, &r),
+ 			       g_print ("... InvalidateRgn "
+ 					"bbox: %ldx%ld@%+ld%+ld\n",
+@@ -1742,15 +1765,15 @@ _gdk_win32_blit (gboolean              use_fg_bg,
+ 	g_warning ("gdk_win32_blit: CombineRgn returned a COMPLEXREGION");
+       
+       GetRgnBox (draw_rgn, &r);
+-      if (r.left != xsrc || r.top != ysrc ||
+-	  r.right != xsrc + width + 1 || r.bottom != ysrc + height + 1)
++      if (r.left / scale != xsrc || r.top / scale != ysrc ||
++	  r.right / scale != xsrc + width + 1 || r.bottom / scale != ysrc + height + 1)
+ 	{
+-	  xdest += r.left - xsrc;
+-	  xsrc = r.left;
+-	  ydest += r.top - ysrc;
+-	  ysrc = r.top;
+-	  width = r.right - xsrc - 1;
+-	  height = r.bottom - ysrc - 1;
++	  xdest += (r.left / scale) - xsrc;
++	  xsrc = r.left / scale;
++	  ydest += (r.top / scale) - ysrc;
++	  ysrc = r.top / scale;
++	  width = (r.right / scale) - xsrc - 1;
++	  height = (r.bottom / scale) - ysrc - 1;
+ 	  
+ 	  GDK_NOTE (DRAW, g_print ("... restricted to src: %dx%d@%+d%+d, "
+ 				   "dest: @%+d%+d\n",
+@@ -1769,7 +1792,7 @@ _gdk_win32_blit (gboolean              use_fg_bg,
+   else if (GDK_IS_PIXMAP_IMPL_WIN32 (src_impl))
+     blit_from_pixmap (use_fg_bg, draw_impl, hdc,
+ 		      (GdkPixmapImplWin32 *) src_impl, gc,
+-		      xsrc, ysrc, xdest, ydest, width, height);
++		      xsrc, ysrc, xdest, ydest, width, height, stretch);
+   else
+     blit_from_window (hdc, GDK_GC_WIN32 (gc), src_impl,
+                       xsrc, ysrc, xdest, ydest, width, height);
+@@ -1792,7 +1815,7 @@ gdk_win32_draw_image (GdkDrawable     *drawable,
+ 
+   _gdk_win32_blit (TRUE, (GdkDrawableImplWin32 *) drawable,
+ 		   gc, (GdkPixmap *) image->windowing_data,
+-		   xsrc, ysrc, xdest, ydest, width, height);
++		   xsrc, ysrc, xdest, ydest, width, height, TRUE);
+ }
+ 
+ static void
+@@ -1923,12 +1946,14 @@ _gdk_windowing_create_cairo_surface (GdkDrawable *drawable,
+ {
+   cairo_surface_t *surface;
+   HDC hdc;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default(), 0);
+ 
+   hdc = _gdk_win32_drawable_acquire_dc (drawable);
+   if (!hdc)
+     return NULL;
+ 
+   surface = cairo_win32_surface_create (hdc);
++  cairo_surface_set_device_scale (surface, scale, scale);
+ 
+   /* Whenever the cairo surface is destroyed, we need to release the
+    * HDC that was acquired */
+@@ -1951,6 +1976,7 @@ static cairo_surface_t *
+ gdk_win32_ref_cairo_surface (GdkDrawable *drawable)
+ {
+   GdkDrawableImplWin32 *impl = GDK_DRAWABLE_IMPL_WIN32 (drawable);
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   if (GDK_IS_WINDOW_IMPL_WIN32 (drawable) &&
+       GDK_WINDOW_DESTROYED (impl->wrapper))
+@@ -1960,6 +1986,7 @@ gdk_win32_ref_cairo_surface (GdkDrawable *drawable)
+     {
+       /* width and height are determined from the DC */
+       impl->cairo_surface = _gdk_windowing_create_cairo_surface (drawable, 0, 0);
++	  cairo_surface_set_device_scale (impl->cairo_surface, scale, scale);
+ 
+       /* Whenever the cairo surface is destroyed, we need to clear the
+        * pointer that we had stored here */
+diff --git a/gdk/win32/gdkevents-win32.c b/gdk/win32/gdkevents-win32.c
+index 3154ad1..00d275e 100644
+--- a/gdk/win32/gdkevents-win32.c
++++ b/gdk/win32/gdkevents-win32.c
+@@ -1249,6 +1249,7 @@ send_crossing_event (GdkDisplay                 *display,
+   GdkEvent *event;
+   GdkPointerGrabInfo *grab;
+   POINT pt;
++  gint scale = (int)gdk_window_get_scale_factor (window);
+ 
+   grab = _gdk_display_has_pointer_grab (display, 0);
+ 
+@@ -1268,10 +1269,10 @@ send_crossing_event (GdkDisplay                 *display,
+   event->crossing.window = (GdkWindow *)window;
+   event->crossing.subwindow = subwindow;
+   event->crossing.time = _gdk_win32_get_next_tick (time_);
+-  event->crossing.x = pt.x;
+-  event->crossing.y = pt.y;
+-  event->crossing.x_root = screen_pt->x + _gdk_offset_x;
+-  event->crossing.y_root = screen_pt->y + _gdk_offset_y;
++  event->crossing.x = pt.x / scale;
++  event->crossing.y = pt.y / scale;
++  event->crossing.x_root = (screen_pt->x + _gdk_offset_x) / scale;
++  event->crossing.y_root = (screen_pt->y + _gdk_offset_y) / scale;
+   event->crossing.mode = mode;
+   event->crossing.detail = notify_type;
+   event->crossing.mode = mode;
+@@ -1468,7 +1469,8 @@ synthesize_expose_events (GdkWindow *window)
+   GList *head = list;
+   GdkEvent *event;
+   int k;
+-  
++  int scale = (int)gdk_window_get_scale_factor (window);
++
+   while (list)
+     {
+       synthesize_expose_events ((GdkWindow *) list->data);
+@@ -1489,10 +1491,10 @@ synthesize_expose_events (GdkWindow *window)
+ 	{
+ 	  event = gdk_event_new (GDK_EXPOSE);
+ 	  event->expose.window = window;
+-	  event->expose.area.x = r.left;
+-	  event->expose.area.y = r.top;
+-	  event->expose.area.width = r.right - r.left;
+-	  event->expose.area.height = r.bottom - r.top;
++	  event->expose.area.x = r.left / scale;
++	  event->expose.area.y = r.top / scale;
++	  event->expose.area.width = (r.right - r.left) / scale;
++	  event->expose.area.height = (r.bottom - r.top) / scale;
+ 	  event->expose.region = gdk_region_rectangle (&(event->expose.area));
+ 	  event->expose.count = 0;
+   
+@@ -1659,6 +1661,7 @@ _gdk_win32_emit_configure_event (GdkWindow *window)
+   POINT point;
+   GdkWindowObject *window_object;
+   HWND hwnd;
++  int scale;
+ 
+   window_object = GDK_WINDOW_OBJECT (window);
+ 
+@@ -1666,6 +1669,8 @@ _gdk_win32_emit_configure_event (GdkWindow *window)
+   if (window_impl->inhibit_configure)
+     return;
+ 
++  scale = (int)gdk_window_get_scale_factor (window);
++
+   hwnd = GDK_WINDOW_HWND (window);
+ 
+   GetClientRect (hwnd, &client_rect);
+@@ -1680,11 +1685,11 @@ _gdk_win32_emit_configure_event (GdkWindow *window)
+       point.y += _gdk_offset_y;
+     }
+ 
+-  window_object->width = client_rect.right - client_rect.left;
+-  window_object->height = client_rect.bottom - client_rect.top;
++  window_object->width = (client_rect.right - client_rect.left) / scale;
++  window_object->height = (client_rect.bottom - client_rect.top) / scale;
+   
+-  window_object->x = point.x;
+-  window_object->y = point.y;
++  window_object->x = point.x / scale;
++  window_object->y = point.y / scale;
+ 
+   _gdk_window_update_size (window);
+   
+@@ -1694,18 +1699,18 @@ _gdk_win32_emit_configure_event (GdkWindow *window)
+ 
+       event->configure.window = window;
+ 
+-      event->configure.width = client_rect.right - client_rect.left;
+-      event->configure.height = client_rect.bottom - client_rect.top;
++      event->configure.width = (client_rect.right - client_rect.left) / scale;
++      event->configure.height = (client_rect.bottom - client_rect.top) / scale;
+       
+-      event->configure.x = point.x;
+-      event->configure.y = point.y;
++      event->configure.x = point.x / scale;
++      event->configure.y = point.y / scale;
+ 
+       _gdk_win32_append_event (event);
+     }
+ }
+ 
+ GdkRegion *
+-_gdk_win32_hrgn_to_region (HRGN hrgn)
++_gdk_win32_hrgn_to_region (HRGN hrgn, int scale)
+ {
+   RGNDATA *rgndata;
+   RECT *rects;
+@@ -1734,10 +1739,10 @@ _gdk_win32_hrgn_to_region (HRGN hrgn)
+     {
+       GdkRectangle r;
+ 
+-      r.x = rects[i].left;
+-      r.y = rects[i].top;
+-      r.width = rects[i].right - r.x;
+-      r.height = rects[i].bottom - r.y;
++      r.x = rects[i].left / scale;
++      r.y = rects[i].top / scale;
++      r.width = (rects[i].right - r.x) / scale;
++      r.height = (rects[i].bottom - r.y) / scale;
+ 
+       gdk_region_union_with_rect (result, &r);
+     }
+@@ -1768,6 +1773,7 @@ handle_wm_paint (MSG        *msg,
+   HDC hdc;
+   PAINTSTRUCT paintstruct;
+   GdkRegion *update_region;
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   if (GetUpdateRgn (msg->hwnd, hrgn, FALSE) == ERROR)
+     {
+@@ -1802,11 +1808,11 @@ handle_wm_paint (MSG        *msg,
+ 
+ 	  *event = gdk_event_new (GDK_EXPOSE);
+ 	  (*event)->expose.window = window;
+-	  (*event)->expose.area.x = paintstruct.rcPaint.left;
+-	  (*event)->expose.area.y = paintstruct.rcPaint.top;
+-	  (*event)->expose.area.width = paintstruct.rcPaint.right - paintstruct.rcPaint.left;
+-	  (*event)->expose.area.height = paintstruct.rcPaint.bottom - paintstruct.rcPaint.top;
+-	  (*event)->expose.region = _gdk_win32_hrgn_to_region (hrgn);
++	  (*event)->expose.area.x = paintstruct.rcPaint.left / scale;
++	  (*event)->expose.area.y = paintstruct.rcPaint.top / scale;
++	  (*event)->expose.area.width = (paintstruct.rcPaint.right - paintstruct.rcPaint.left) / scale;
++	  (*event)->expose.area.height = (paintstruct.rcPaint.bottom - paintstruct.rcPaint.top) / scale;
++	  (*event)->expose.region = _gdk_win32_hrgn_to_region (hrgn, scale);
+ 	  (*event)->expose.count = 0;
+ 
+ 	  while (list != NULL)
+@@ -1826,7 +1832,7 @@ handle_wm_paint (MSG        *msg,
+       return;
+     }
+ 
+-  update_region = _gdk_win32_hrgn_to_region (hrgn);
++  update_region = _gdk_win32_hrgn_to_region (hrgn, scale);
+   if (!gdk_region_empty (update_region))
+     _gdk_window_invalidate_for_expose (window, update_region);
+   gdk_region_destroy (update_region);
+@@ -1906,13 +1912,14 @@ generate_button_event (GdkEventType type,
+ 		       MSG         *msg)
+ {
+   GdkEvent *event = gdk_event_new (type);
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   event->button.window = window;
+   event->button.time = _gdk_win32_get_next_tick (msg->time);
+-  event->button.x = current_x = (gint16) GET_X_LPARAM (msg->lParam);
+-  event->button.y = current_y = (gint16) GET_Y_LPARAM (msg->lParam);
+-  event->button.x_root = msg->pt.x + _gdk_offset_x;
+-  event->button.y_root = msg->pt.y + _gdk_offset_y;
++  event->button.x = current_x = ((gint16) GET_X_LPARAM (msg->lParam)) / scale;
++  event->button.y = current_y = ((gint16) GET_Y_LPARAM (msg->lParam)) / scale;
++  event->button.x_root = (msg->pt.x + _gdk_offset_x) / scale;
++  event->button.y_root = (msg->pt.y + _gdk_offset_y) / scale;
+   event->button.axes = NULL;
+   event->button.state = build_pointer_event_state (msg);
+   event->button.button = button;
+@@ -2167,6 +2174,7 @@ gdk_event_translate (MSG  *msg,
+ 
+   gchar buf[256];
+   gboolean return_val = FALSE;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   int i;
+ 
+@@ -2701,10 +2709,10 @@ gdk_event_translate (MSG  *msg,
+       event = gdk_event_new (GDK_MOTION_NOTIFY);
+       event->motion.window = window;
+       event->motion.time = _gdk_win32_get_next_tick (msg->time);
+-      event->motion.x = current_x = (gint16) GET_X_LPARAM (msg->lParam);
+-      event->motion.y = current_y = (gint16) GET_Y_LPARAM (msg->lParam);
+-      event->motion.x_root = current_root_x;
+-      event->motion.y_root = current_root_y;
++      event->motion.x = current_x = (gint16) (GET_X_LPARAM (msg->lParam) / scale);
++      event->motion.y = current_y = (gint16) (GET_Y_LPARAM (msg->lParam) / scale);
++      event->motion.x_root = current_root_x / scale;
++      event->motion.y_root = current_root_y / scale;
+       event->motion.axes = NULL;
+       event->motion.state = build_pointer_event_state (msg);
+       event->motion.is_hint = FALSE;
+@@ -2817,10 +2825,10 @@ gdk_event_translate (MSG  *msg,
+       event->scroll.direction = (((short) HIWORD (msg->wParam)) > 0) ?
+ 	GDK_SCROLL_UP : GDK_SCROLL_DOWN;
+       event->scroll.time = _gdk_win32_get_next_tick (msg->time);
+-      event->scroll.x = (gint16) point.x;
+-      event->scroll.y = (gint16) point.y;
+-      event->scroll.x_root = (gint16) GET_X_LPARAM (msg->lParam) + _gdk_offset_x;
+-      event->scroll.y_root = (gint16) GET_Y_LPARAM (msg->lParam) + _gdk_offset_y;
++      event->scroll.x = (gint16) (point.x / scale);
++      event->scroll.y = (gint16) (point.y / scale);
++      event->scroll.x_root = (gint16) ((GET_X_LPARAM (msg->lParam) + _gdk_offset_x) / scale);
++      event->scroll.y_root = (gint16) ((GET_Y_LPARAM (msg->lParam) + _gdk_offset_y) / scale);
+       event->scroll.state = build_pointer_event_state (msg);
+       event->scroll.device = _gdk_display->core_pointer;
+ 
+@@ -3387,8 +3395,8 @@ gdk_event_translate (MSG  *msg,
+       if (impl->hint_flags & GDK_HINT_MIN_SIZE)
+ 	{
+ 	  rect.left = rect.top = 0;
+-	  rect.right = impl->hints.min_width;
+-	  rect.bottom = impl->hints.min_height;
++	  rect.right = impl->hints.min_width * scale;
++	  rect.bottom = impl->hints.min_height * scale;
+ 
+ 	  _gdk_win32_adjust_client_rect (window, &rect);
+ 
+@@ -3401,8 +3409,8 @@ gdk_event_translate (MSG  *msg,
+ 	  int maxw, maxh;
+ 
+ 	  rect.left = rect.top = 0;
+-	  rect.right = impl->hints.max_width;
+-	  rect.bottom = impl->hints.max_height;
++	  rect.right = impl->hints.max_width * scale;
++	  rect.bottom = impl->hints.max_height * scale;
+ 
+ 	  _gdk_win32_adjust_client_rect (window, &rect);
+ 
+diff --git a/gdk/win32/gdkgc-win32.c b/gdk/win32/gdkgc-win32.c
+index e7e6fd8..8d77795 100644
+--- a/gdk/win32/gdkgc-win32.c
++++ b/gdk/win32/gdkgc-win32.c
+@@ -903,10 +903,12 @@ gdk_win32_hdc_get (GdkDrawable    *drawable,
+       if (SelectClipRgn (win32_gc->hdc, win32_gc->hcliprgn) == ERROR)
+ 	WIN32_API_FAILED ("SelectClipRgn"), ok = FALSE;
+ 
++      int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
++
+       if (ok && win32_gc->values_mask & (GDK_GC_CLIP_X_ORIGIN | GDK_GC_CLIP_Y_ORIGIN) &&
+ 	  OffsetClipRgn (win32_gc->hdc,
+-	    win32_gc->values_mask & GDK_GC_CLIP_X_ORIGIN ? gc->clip_x_origin : 0,
+-	    win32_gc->values_mask & GDK_GC_CLIP_Y_ORIGIN ? gc->clip_y_origin : 0) == ERROR)
++	    win32_gc->values_mask & GDK_GC_CLIP_X_ORIGIN ? gc->clip_x_origin * scale : 0,
++	    win32_gc->values_mask & GDK_GC_CLIP_Y_ORIGIN ? gc->clip_y_origin * scale : 0) == ERROR)
+ 	WIN32_API_FAILED ("OffsetClipRgn"), ok = FALSE;
+     }
+   else if (ok)
+@@ -1118,6 +1120,7 @@ _gdk_win32_gdkregion_to_hrgn (const GdkRegion *region,
+   guint nbytes =
+     sizeof (RGNDATAHEADER) + (sizeof (RECT) * region->numRects);
+   int i;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   rgndata = g_malloc (nbytes);
+   rgndata->rdh.dwSize = sizeof (RGNDATAHEADER);
+@@ -1130,10 +1133,10 @@ _gdk_win32_gdkregion_to_hrgn (const GdkRegion *region,
+     {
+       rect = ((RECT *) rgndata->Buffer) + rgndata->rdh.nCount++;
+ 
+-      rect->left = boxes[i].x1 + x_origin;
+-      rect->right = boxes[i].x2 + x_origin;
+-      rect->top = boxes[i].y1 + y_origin;
+-      rect->bottom = boxes[i].y2 + y_origin;
++      rect->left = (boxes[i].x1 + x_origin) * scale;
++      rect->right = (boxes[i].x2 + x_origin) * scale;
++      rect->top = (boxes[i].y1 + y_origin) * scale;
++      rect->bottom = (boxes[i].y2 + y_origin) * scale;
+ 
+       if (rect->left < rgndata->rdh.rcBound.left)
+ 	rgndata->rdh.rcBound.left = rect->left;
+diff --git a/gdk/win32/gdkgeometry-win32.c b/gdk/win32/gdkgeometry-win32.c
+index 23b6a4a..6c67d19 100644
+--- a/gdk/win32/gdkgeometry-win32.c
++++ b/gdk/win32/gdkgeometry-win32.c
+@@ -61,6 +61,7 @@ _gdk_window_move_resize_child (GdkWindow *window,
+ {
+   GdkWindowImplWin32 *impl;
+   GdkWindowObject *obj;
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   g_return_if_fail (window != NULL);
+   g_return_if_fail (GDK_IS_WINDOW (window));
+@@ -76,10 +77,10 @@ _gdk_window_move_resize_child (GdkWindow *window,
+   {
+     g_warning ("Native children wider or taller than 65535 pixels are not supported.");
+ 
+-    if (width > 65535)
+-      width = 65535;
+-    if (height > 65535)
+-      height = 65535;
++    if (width * scale > 65535)
++      width = 65535 / scale;
++    if (height * scale > 65535)
++      height = 65535 / scale;
+   }
+ 
+   obj->x = x;
+@@ -97,8 +98,8 @@ _gdk_window_move_resize_child (GdkWindow *window,
+ 			   width, height));
+ 
+   API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+-			   obj->x + obj->parent->abs_x, obj->y + obj->parent->abs_y, 
+-			   width, height,
++			   (obj->x + obj->parent->abs_x) * scale, (obj->y + obj->parent->abs_y) * scale,
++			   width * scale, height * scale,
+ 			   SWP_NOACTIVATE | SWP_NOZORDER));
+ 
+   //_gdk_win32_window_tmp_reset_parent_bg (window);
+diff --git a/gdk/win32/gdkimage-win32.c b/gdk/win32/gdkimage-win32.c
+index 5292f20..4bce722 100644
+--- a/gdk/win32/gdkimage-win32.c
++++ b/gdk/win32/gdkimage-win32.c
+@@ -250,7 +250,8 @@ _gdk_win32_copy_to_image (GdkDrawable    *drawable,
+ {
+   GdkGC *gc;
+   GdkScreen *screen = gdk_drawable_get_screen (drawable);
+-  
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
++
+   g_return_val_if_fail (GDK_IS_DRAWABLE_IMPL_WIN32 (drawable), NULL);
+   g_return_val_if_fail (image != NULL || (dest_x == 0 && dest_y == 0), NULL);
+ 
+@@ -265,7 +266,7 @@ _gdk_win32_copy_to_image (GdkDrawable    *drawable,
+   _gdk_win32_blit
+     (FALSE,
+      GDK_DRAWABLE_IMPL_WIN32 (GDK_PIXMAP_OBJECT (image->windowing_data)->impl),
+-     gc, drawable, src_x, src_y, dest_x, dest_y, width, height);
++     gc, drawable, src_x, src_y, dest_x / scale, dest_y / scale, width, height, FALSE);
+   g_object_unref (gc);
+ 
+   return image;
+diff --git a/gdk/win32/gdkpixmap-win32.c b/gdk/win32/gdkpixmap-win32.c
+index 0c5251a..feb3ad4 100644
+--- a/gdk/win32/gdkpixmap-win32.c
++++ b/gdk/win32/gdkpixmap-win32.c
+@@ -458,7 +458,7 @@ _gdk_pixmap_create_from_data (GdkDrawable    *drawable,
+   _gdk_win32_blit
+     (TRUE,
+      GDK_DRAWABLE_IMPL_WIN32 (GDK_PIXMAP_OBJECT (result)->impl),
+-     gc, source, 0, 0, 0, 0, width, height);
++     gc, source, 0, 0, 0, 0, width, height, FALSE);
+   g_object_unref (source);
+   g_object_unref (gc);
+ 
+diff --git a/gdk/win32/gdkprivate-win32.h b/gdk/win32/gdkprivate-win32.h
+index f243f6d..99b4ede 100644
+--- a/gdk/win32/gdkprivate-win32.h
++++ b/gdk/win32/gdkprivate-win32.h
+@@ -289,7 +289,8 @@ void      _gdk_win32_blit               (gboolean              use_fg_bg,
+ 					 gint        	    	xdest,
+ 					 gint        	    	ydest,
+ 					 gint        	    	width,
+-					 gint        	    	height);
++					 gint        	    	height,
++					 gboolean               stretch);
+ 
+ COLORREF  _gdk_win32_colormap_color     (GdkColormap *colormap,
+ 				         gulong       pixel);
+@@ -300,7 +301,7 @@ HRGN	  _gdk_win32_gdkregion_to_hrgn  (const GdkRegion *region,
+ 					 gint             x_origin,
+ 					 gint             y_origin);
+ 
+-GdkRegion *_gdk_win32_hrgn_to_region    (HRGN hrgn);
++GdkRegion *_gdk_win32_hrgn_to_region    (HRGN hrgn, int scale);
+ 
+ void	_gdk_win32_adjust_client_rect   (GdkWindow *window,
+ 					 RECT      *RECT);
+diff --git a/gdk/win32/gdkscreen-win32.c b/gdk/win32/gdkscreen-win32.c
+index f2d7074..ef4f34b 100644
+--- a/gdk/win32/gdkscreen-win32.c
++++ b/gdk/win32/gdkscreen-win32.c
+@@ -18,6 +18,7 @@
+  */
+ 
+ #include "config.h"
++#include <math.h>
+ #include "gdk.h"
+ #include "gdkprivate-win32.h"
+ 
+@@ -100,7 +101,7 @@ gdouble
+ gdk_screen_get_monitor_scale_factor (GdkScreen *screen,
+ 				     gint       num_monitor)
+ {
+-  g_return_val_if_fail (GDK_IS_SCREEN (screen), 1.0);
++  g_return_val_if_fail (GDK_IS_SCREEN (screen), 1);
+   g_return_val_if_fail (num_monitor < gdk_screen_get_n_monitors (screen), 1.0);
+   g_return_val_if_fail (num_monitor >= 0, 1.0);
+ 
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index 398c6b6..d6c2db4 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -29,6 +29,7 @@
+ 
+ #include "config.h"
+ #include <stdlib.h>
++#include <math.h>
+ 
+ #include "gdk.h"
+ #include "gdkwindowimpl.h"
+@@ -278,14 +279,15 @@ _gdk_root_window_size_init (void)
+   GdkWindowObject *window_object;
+   GdkRectangle rect;
+   int i;
++  double scale = _gdk_monitors[0].scale_factor;
+ 
+   window_object = GDK_WINDOW_OBJECT (_gdk_root);
+   rect = _gdk_monitors[0].rect;
+   for (i = 1; i < _gdk_num_monitors; i++)
+     gdk_rectangle_union (&rect, &_gdk_monitors[i].rect, &rect);
+ 
+-  window_object->width = rect.width;
+-  window_object->height = rect.height;
++  window_object->width = rect.width / scale;
++  window_object->height = rect.height / scale;
+ }
+ 
+ void
+@@ -545,9 +547,10 @@ _gdk_window_impl_new (GdkWindow     *window,
+   gboolean override_redirect;
+   gint window_width, window_height;
+   gint offset_x = 0, offset_y = 0;
+-  gint x, y, real_x = 0, real_y = 0;
++  gint x = 0, y = 0, real_x = 0, real_y = 0;
+   /* check consistency of redundant information */
+   guint remaining_mask = attributes_mask;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default(), 0);
+ 
+   private = (GdkWindowObject *)window;
+ 
+@@ -693,10 +696,10 @@ _gdk_window_impl_new (GdkWindow     *window,
+ 
+   if (private->window_type != GDK_WINDOW_CHILD)
+     {
+-      rect.left = private->x;
+-      rect.top = private->y;
+-      rect.right = private->width;
+-      rect.bottom = private->height;
++      rect.left = private->x * scale;
++      rect.top = private->y * scale;
++      rect.right = private->width * scale;
++      rect.bottom = private->height * scale;
+ 
+       AdjustWindowRectEx (&rect, dwStyle, FALSE, dwExStyle);
+ 
+@@ -717,8 +720,8 @@ _gdk_window_impl_new (GdkWindow     *window,
+ 	  y = real_y;
+ 	}
+ 
+-      window_width = rect.right - rect.left;
+-      window_height = rect.bottom - rect.top;
++	window_width = (rect.right - rect.left) / scale;
++	window_height = (rect.bottom - rect.top) / scale;
+     }
+   else
+     {
+@@ -733,14 +736,14 @@ _gdk_window_impl_new (GdkWindow     *window,
+   klass = RegisterGdkClass (private->window_type, impl->type_hint);
+ 
+   wtitle = g_utf8_to_utf16 (title, -1, NULL, NULL, NULL);
+-  
++
+   hwndNew = CreateWindowExW (dwExStyle,
+ 			     MAKEINTRESOURCEW (klass),
+ 			     wtitle,
+ 			     dwStyle,
+-			     x,
+-			     y,
+-			     window_width, window_height,
++			     x * scale,
++			     y * scale,
++			     window_width * scale, window_height * scale,
+ 			     hparent,
+ 			     NULL,
+ 			     _gdk_app_hmodule,
+@@ -770,14 +773,14 @@ _gdk_window_impl_new (GdkWindow     *window,
+   if (private->window_type != GDK_WINDOW_CHILD)
+     {
+       GetWindowRect (GDK_WINDOW_HWND (window), &rect);
+-      impl->initial_x = rect.left;
+-      impl->initial_y = rect.top;
++      impl->initial_x = rect.left / scale;
++      impl->initial_y = rect.top / scale;
+ 
+       /* Now we know the initial position, move to actually specified position */
+       if (real_x != x || real_y != y)
+ 	{
+ 	  API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+-				   real_x, real_y, 0, 0,
++				   real_x * scale, real_y * scale, 0, 0,
+ 				   SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER));
+ 	}
+     }
+@@ -980,9 +983,10 @@ get_outer_rect (GdkWindow *window,
+ 		gint       height,
+ 		RECT      *rect)
+ {
++  int scale = (int)gdk_window_get_scale_factor (window);
+   rect->left = rect->top = 0;
+-  rect->right = width;
+-  rect->bottom = height;
++  rect->right = width * scale;
++  rect->bottom = height * scale;
+       
+   _gdk_win32_adjust_client_rect (window, rect);
+ }
+@@ -995,6 +999,7 @@ adjust_for_gravity_hints (GdkWindow *window,
+ {
+ 	GdkWindowObject *obj;
+ 	GdkWindowImplWin32 *impl;
++	int scale = (int)gdk_window_get_scale_factor (window);
+ 
+ 	obj = GDK_WINDOW_OBJECT (window);
+ 	impl = GDK_WINDOW_IMPL_WIN32 (obj->impl);
+@@ -1010,19 +1015,19 @@ adjust_for_gravity_hints (GdkWindow *window,
+ 	case GDK_GRAVITY_NORTH:
+ 	case GDK_GRAVITY_CENTER:
+ 	case GDK_GRAVITY_SOUTH:
+-	  *x -= (outer_rect->right - outer_rect->left) / 2;
++	  *x -= (outer_rect->right - outer_rect->left) / scale / 2;
+ 	  *x += obj->width / 2;
+ 	  break;
+ 	      
+ 	case GDK_GRAVITY_SOUTH_EAST:
+ 	case GDK_GRAVITY_EAST:
+ 	case GDK_GRAVITY_NORTH_EAST:
+-	  *x -= outer_rect->right - outer_rect->left;
++	  *x -= (outer_rect->right - outer_rect->left) / scale;
+ 	  *x += obj->width;
+ 	  break;
+ 
+ 	case GDK_GRAVITY_STATIC:
+-	  *x += outer_rect->left;
++	  *x += outer_rect->left / scale;
+ 	  break;
+ 
+ 	default:
+@@ -1034,19 +1039,19 @@ adjust_for_gravity_hints (GdkWindow *window,
+ 	case GDK_GRAVITY_WEST:
+ 	case GDK_GRAVITY_CENTER:
+ 	case GDK_GRAVITY_EAST:
+-	  *y -= (outer_rect->bottom - outer_rect->top) / 2;
++	  *y -= (outer_rect->bottom - outer_rect->top) / scale / 2;
+ 	  *y += obj->height / 2;
+ 	  break;
+ 
+ 	case GDK_GRAVITY_SOUTH_WEST:
+ 	case GDK_GRAVITY_SOUTH:
+ 	case GDK_GRAVITY_SOUTH_EAST:
+-	  *y -= outer_rect->bottom - outer_rect->top;
++	  *y -= (outer_rect->bottom - outer_rect->top) / scale;
+ 	  *y += obj->height;
+ 	  break;
+ 
+ 	case GDK_GRAVITY_STATIC:
+-	  *y += outer_rect->top;
++	  *y += outer_rect->top / scale;
+ 	  break;
+ 
+ 	default:
+@@ -1069,6 +1074,7 @@ show_window_internal (GdkWindow *window,
+   GdkWindowImplWin32 *window_impl;
+   gboolean focus_on_map = FALSE;
+   DWORD exstyle;
++  int scale = (int)gdk_window_get_scale_factor (GDK_WINDOW(window));
+ 
+   private = (GdkWindowObject *) window;
+ 
+@@ -1150,8 +1156,8 @@ show_window_internal (GdkWindow *window,
+       RECT window_rect, center_on_rect;
+       int x, y;
+ 
+-      x = window_impl->initial_x;
+-      y = window_impl->initial_y;
++      x = window_impl->initial_x * scale;
++      y = window_impl->initial_y * scale;
+ 
+       if (window_impl->type_hint == GDK_WINDOW_TYPE_HINT_SPLASHSCREEN)
+ 	{
+@@ -1176,10 +1182,10 @@ show_window_internal (GdkWindow *window,
+ 	{
+ 	  GdkWindowObject *owner = GDK_WINDOW_OBJECT (window_impl->transient_owner);
+ 	  /* Center on transient parent */
+-	  center_on_rect.left = owner->x;
+-	  center_on_rect.top = owner->y;
+-	  center_on_rect.right = center_on_rect.left + owner->width;
+-	  center_on_rect.bottom = center_on_rect.top + owner->height;
++	  center_on_rect.left = owner->x * scale;
++	  center_on_rect.top = owner->y * scale;
++	  center_on_rect.right = center_on_rect.left + owner->width * scale;
++	  center_on_rect.bottom = center_on_rect.top + owner->height * scale;
+ 	  _gdk_win32_adjust_client_rect (GDK_WINDOW (owner), &center_on_rect);
+ 	  center = TRUE;
+ 	}
+@@ -1188,12 +1194,15 @@ show_window_internal (GdkWindow *window,
+ 	{
+ 	  window_rect.left = 0;
+ 	  window_rect.top = 0;
+-	  window_rect.right = private->width;
+-	  window_rect.bottom = private->height;
++	  window_rect.right = private->width * scale;
++	  window_rect.bottom = private->height * scale;
+ 	  _gdk_win32_adjust_client_rect (window, &window_rect);
+ 
+ 	  x = center_on_rect.left + ((center_on_rect.right - center_on_rect.left) - (window_rect.right - window_rect.left)) / 2;
+ 	  y = center_on_rect.top + ((center_on_rect.bottom - center_on_rect.top) - (window_rect.bottom - window_rect.top)) / 2;
++
++	  x -= _gdk_offset_x * scale;
++	  y -= _gdk_offset_y * scale;
+ 	}
+ 
+       API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+@@ -1246,9 +1255,11 @@ show_window_internal (GdkWindow *window,
+ 	    }
+ 
+ 	  if (x != window_rect.left || y != window_rect.top)
+-	    API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+-				     window_rect.left, window_rect.top, 0, 0,
+-				     SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER));
++            {
++		  API_CALL(SetWindowPos, (GDK_WINDOW_HWND(window), NULL,
++			  window_rect.left, window_rect.top, 0, 0,
++			  SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER));
++	    }
+ 	}
+     }
+ 
+@@ -1355,6 +1366,7 @@ gdk_win32_window_move (GdkWindow *window,
+ {
+   GdkWindowObject *private = (GdkWindowObject *)window;
+   GdkWindowImplWin32 *impl;
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+@@ -1385,13 +1397,16 @@ gdk_win32_window_move (GdkWindow *window,
+ 
+       adjust_for_gravity_hints (window, &outer_rect, &x, &y);
+ 
++      x -= _gdk_offset_x;
++      y -= _gdk_offset_y;
++
+       GDK_NOTE (MISC, g_print ("... SetWindowPos(%p,NULL,%d,%d,0,0,"
+                                "NOACTIVATE|NOSIZE|NOZORDER)\n",
+                                GDK_WINDOW_HWND (window),
+-                               x - _gdk_offset_x, y - _gdk_offset_y));
++                               x * scale, y * scale));
+ 
+       API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+-                               x - _gdk_offset_x, y - _gdk_offset_y, 0, 0,
++                               x * scale, y * scale, 0, 0,
+                                SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER));
+     }
+ }
+@@ -1402,6 +1417,7 @@ gdk_win32_window_resize (GdkWindow *window,
+ {
+   GdkWindowObject *private = (GdkWindowObject*) window;
+   GdkWindowImplWin32 *impl;
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+@@ -1439,8 +1455,8 @@ gdk_win32_window_resize (GdkWindow *window,
+ 
+       API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+                                0, 0,
+-                               outer_rect.right - outer_rect.left,
+-                               outer_rect.bottom - outer_rect.top,
++                               (outer_rect.right - outer_rect.left),
++                               (outer_rect.bottom - outer_rect.top),
+                                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER));
+       private->resize_count += 1;
+     }
+@@ -1455,6 +1471,7 @@ gdk_win32_window_move_resize_internal (GdkWindow *window,
+ {
+   GdkWindowObject *private;
+   GdkWindowImplWin32 *impl;
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
+@@ -1496,9 +1513,9 @@ gdk_win32_window_move_resize_internal (GdkWindow *window,
+                                outer_rect.bottom - outer_rect.top));
+ 
+       API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), NULL,
+-                               x - _gdk_offset_x, y - _gdk_offset_y,
+-                               outer_rect.right - outer_rect.left,
+-                               outer_rect.bottom - outer_rect.top,
++                               (x - _gdk_offset_x) * scale, (y - _gdk_offset_y) * scale,
++                               (outer_rect.right - outer_rect.left),
++                               (outer_rect.bottom - outer_rect.top),
+                                SWP_NOACTIVATE | SWP_NOZORDER));
+     }
+ }
+@@ -1557,6 +1574,7 @@ gdk_win32_window_reparent (GdkWindow *window,
+   GdkWindowImplWin32 *impl;
+   gboolean was_toplevel;
+   LONG style;
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   if (!new_parent)
+     new_parent = _gdk_root;
+@@ -1594,7 +1612,7 @@ gdk_win32_window_reparent (GdkWindow *window,
+ 			GDK_WINDOW_HWND (new_parent)));
+   
+   API_CALL (MoveWindow, (GDK_WINDOW_HWND (window),
+-			 x, y, window_private->width, window_private->height, TRUE));
++			 x * scale, y * scale, window_private->width * scale, window_private->height * scale, TRUE));
+ 
+   /* From here on, we treat parents of type GDK_WINDOW_FOREIGN like
+    * the root window
+@@ -1651,6 +1669,7 @@ erase_background (GdkWindow *window,
+   GdkColormapPrivateWin32 *colormap_private;
+   int x, y;
+   int x_offset, y_offset;
++  int scale = (int)gdk_window_get_scale_factor (window);
+   
+   if (((GdkWindowObject *) window)->input_only ||
+       ((GdkWindowObject *) window)->bg_pixmap == GDK_NO_BG)
+@@ -1684,8 +1703,8 @@ erase_background (GdkWindow *window,
+        * fetch the parent. (And if the same goes for the parent, fetch
+        * the grandparent, etc.)
+        */
+-      x_offset += ((GdkWindowObject *) window)->x;
+-      y_offset += ((GdkWindowObject *) window)->y;
++      x_offset += ((GdkWindowObject *) window)->x * scale;
++      y_offset += ((GdkWindowObject *) window)->y * scale;
+       window = GDK_WINDOW (((GdkWindowObject *) window)->parent);
+     }
+   
+@@ -1736,15 +1755,15 @@ erase_background (GdkWindow *window,
+ 	  x = -x_offset;
+ 	  while (x < rect.right)
+ 	    {
+-	      if (x + pixmap_impl->width >= rect.left)
++	      if (x + pixmap_impl->width * scale >= rect.left)
+ 		{
+ 		  y = -y_offset;
+ 		  while (y < rect.bottom)
+ 		    {
+-		      if (y + pixmap_impl->height >= rect.top)
++		      if (y + pixmap_impl->height * scale >= rect.top)
+ 			{
+-			  if (!BitBlt (hdc, x, y,
+-				       pixmap_impl->width, pixmap_impl->height,
++			  if (!BitBlt (hdc, x * scale, y * scale,
++				       pixmap_impl->width * scale, pixmap_impl->height * scale,
+ 				       bgdc, 0, 0, SRCCOPY))
+ 			    {
+ 			      WIN32_GDI_FAILED ("BitBlt");
+@@ -1753,10 +1772,10 @@ erase_background (GdkWindow *window,
+ 			      return;
+ 			    }
+ 			}
+-		      y += pixmap_impl->height;
++		      y += pixmap_impl->height * scale;
+ 		    }
+ 		}
+-	      x += pixmap_impl->width;
++	      x += pixmap_impl->width * scale;
+ 	    }
+ 	  SelectObject (bgdc, oldbitmap);
+ 	  DeleteDC (bgdc);
+@@ -1773,6 +1792,12 @@ gdk_win32_window_clear_area (GdkWindow *window,
+ 			     gboolean   send_expose)
+ {
+   GdkWindowObject *private = (GdkWindowObject *)window;
++  int scale = (int)gdk_window_get_scale_factor (window);
++
++  x;
++  y;
++  width;
++  height;
+ 
+   if (!GDK_WINDOW_DESTROYED (window))
+     {
+@@ -1791,7 +1816,7 @@ gdk_win32_window_clear_area (GdkWindow *window,
+ 				   "%dx%d@%+d%+d\n",
+ 				   GDK_WINDOW_HWND (window),
+ 				   width, height, x, y));
+-	  IntersectClipRect (hdc, x, y, x + width, y + height);
++	  IntersectClipRect (hdc, x * scale, y * scale, (x + width) * scale, (y + height) * scale);
+ 	  erase_background (window, hdc);
+ 	  GDI_CALL (ReleaseDC, (GDK_WINDOW_HWND (window), hdc));
+ 	}
+@@ -1799,14 +1824,14 @@ gdk_win32_window_clear_area (GdkWindow *window,
+ 	{
+ 	  /* The background should be erased before the expose event is
+ 	     generated */
+-	  IntersectClipRect (hdc, x, y, x + width, y + height);
++	  IntersectClipRect (hdc, x * scale, y * scale, (x + width) * scale, (y + height) * scale);
+ 	  erase_background (window, hdc);
+ 	  GDI_CALL (ReleaseDC, (GDK_WINDOW_HWND (window), hdc));
+ 
+-	  rect.left = x;
+-	  rect.right = x + width;
+-	  rect.top = y;
+-	  rect.bottom = y + height;
++	  rect.left = x * scale;
++	  rect.right = (x + width) * scale;
++	  rect.top = y * scale;
++	  rect.bottom = (y + height) * scale;
+ 
+ 	  GDI_CALL (InvalidateRect, (GDK_WINDOW_HWND (window), &rect, TRUE));
+ 	  UpdateWindow (GDK_WINDOW_HWND (window));
+@@ -1846,7 +1871,7 @@ gdk_win32_window_raise (GdkWindow *window)
+       if (GDK_WINDOW_TYPE (window) == GDK_WINDOW_TEMP)
+         API_CALL (SetWindowPos, (GDK_WINDOW_HWND (window), HWND_TOPMOST,
+ 	                         0, 0, 0, 0,
+-				 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER));
++				 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE));
+       else if (((GdkWindowObject *)window)->accept_focus)
+         /* Do not wrap this in an API_CALL macro as SetForegroundWindow might
+          * fail when for example dragging a window belonging to a different
+@@ -1890,6 +1915,14 @@ gdk_window_set_hints (GdkWindow *window,
+   /* Note that this function is obsolete */
+ 
+   GdkWindowImplWin32 *impl;
++  int scale = (int)gdk_window_get_scale_factor (window);
++
++  x *= scale;
++  y *= scale;
++  min_width *= scale;
++  max_width *= scale;
++  min_height *= scale;
++  max_height *= scale;
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+   
+@@ -2462,7 +2495,8 @@ gdk_win32_window_get_geometry (GdkWindow *window,
+ {
+   if (!window)
+     window = _gdk_root;
+-  
++  int scale = (int)gdk_window_get_scale_factor (window);
++
+   if (!GDK_WINDOW_DESTROYED (window))
+     {
+       RECT rect;
+@@ -2490,21 +2524,21 @@ gdk_win32_window_get_geometry (GdkWindow *window,
+ 
+ 	  if (parent == _gdk_root)
+ 	    {
+-	      rect.left += _gdk_offset_x;
+-	      rect.top += _gdk_offset_y;
+-	      rect.right += _gdk_offset_x;
+-	      rect.bottom += _gdk_offset_y;
++	      rect.left += _gdk_offset_x * scale;
++	      rect.top += _gdk_offset_y * scale;
++	      rect.right += _gdk_offset_x * scale;
++	      rect.bottom += _gdk_offset_y * scale;
+ 	    }
+ 	}
+ 
+       if (x)
+-	*x = rect.left;
++	*x = rect.left / scale;
+       if (y)
+-	*y = rect.top;
++	*y = rect.top / scale;
+       if (width)
+-	*width = rect.right - rect.left;
++	*width = (rect.right - rect.left) / scale;
+       if (height)
+-	*height = rect.bottom - rect.top;
++	*height = (rect.bottom - rect.top) / scale;
+       if (depth)
+ 	*depth = gdk_drawable_get_visual (window)->depth;
+ 
+@@ -2523,6 +2557,7 @@ gdk_win32_window_get_root_coords (GdkWindow *window,
+ 				  gint      *root_x,
+ 				  gint      *root_y)
+ {
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+   gint tx;
+   gint ty;
+   POINT pt;
+@@ -2530,8 +2565,8 @@ gdk_win32_window_get_root_coords (GdkWindow *window,
+   pt.x = x;
+   pt.y = y;
+   ClientToScreen (GDK_WINDOW_HWND (window), &pt);
+-  tx = pt.x;
+-  ty = pt.y;
++  tx = pt.x / scale;
++  ty = pt.y / scale;
+   
+   if (root_x)
+     *root_x = tx + _gdk_offset_x;
+@@ -2620,6 +2655,8 @@ gdk_window_get_frame_extents (GdkWindow    *window,
+ 
+   private = GDK_WINDOW_OBJECT (window);
+ 
++  int scale = (int)gdk_window_get_scale_factor (window);
++
+   rect->x = 0;
+   rect->y = 0;
+   rect->width = 1;
+@@ -2637,10 +2674,10 @@ gdk_window_get_frame_extents (GdkWindow    *window,
+   hwnd = GDK_WINDOW_HWND (window);
+   API_CALL (GetWindowRect, (hwnd, &r));
+ 
+-  rect->x = r.left + _gdk_offset_x;
+-  rect->y = r.top + _gdk_offset_y;
+-  rect->width = r.right - r.left;
+-  rect->height = r.bottom - r.top;
++  rect->x = r.left / scale + _gdk_offset_x;
++  rect->y = r.top / scale + _gdk_offset_y;
++  rect->width = (r.right - r.left) / scale;
++  rect->height = (r.bottom - r.top) / scale;
+ 
+   GDK_NOTE (MISC, g_print ("gdk_window_get_frame_extents: %p: %ldx%ld@%+ld%+ld\n",
+ 			   GDK_WINDOW_HWND (window),
+@@ -2687,14 +2724,16 @@ gdk_window_win32_get_pointer (GdkWindow       *window,
+ 
+   g_return_val_if_fail (window == NULL || GDK_IS_WINDOW (window), FALSE);
+   
++  int scale = (int)gdk_window_get_scale_factor (window);
++
+   return_val = TRUE;
+ 
+   hwnd = GDK_WINDOW_HWND (window);
+   GetCursorPos (&point);
+   ScreenToClient (hwnd, &point);
+ 
+-  *x = point.x;
+-  *y = point.y;
++  *x = point.x / scale;
++  *y = point.y / scale;
+ 
+   if (window == _gdk_root)
+     {
+@@ -2724,9 +2763,12 @@ _gdk_windowing_get_pointer (GdkDisplay       *display,
+   g_return_if_fail (display == _gdk_display);
+   
+   *screen = _gdk_screen;
++
++  int scale = (int)gdk_screen_get_monitor_scale_factor (_gdk_screen, 0);
++
+   GetCursorPos (&point);
+-  *x = point.x + _gdk_offset_x;
+-  *y = point.y + _gdk_offset_y;
++  *x = point.x / scale + _gdk_offset_x;
++  *y = point.y / scale + _gdk_offset_y;
+ 
+   *mask = get_current_mask ();
+ }
+@@ -2740,7 +2782,10 @@ gdk_display_warp_pointer (GdkDisplay *display,
+   g_return_if_fail (display == _gdk_display);
+   g_return_if_fail (screen == _gdk_screen);
+ 
+-  SetCursorPos (x - _gdk_offset_x, y - _gdk_offset_y);
++  int scale = (int)gdk_screen_get_monitor_scale_factor (screen, 0);
++
++  SetCursorPos ((x - _gdk_offset_x) * scale,
++				(y - _gdk_offset_y) * scale);
+ }
+ 
+ static void
+@@ -2761,6 +2806,7 @@ _gdk_windowing_window_at_pointer (GdkDisplay *display,
+   POINT screen_pt, client_pt;
+   HWND hwnd, hwndc;
+   RECT rect;
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   GetCursorPos (&screen_pt);
+ 
+@@ -2811,9 +2857,9 @@ _gdk_windowing_window_at_pointer (GdkDisplay *display,
+       if (hwnd == NULL)
+         {
+           if (win_x)
+-            *win_x = screen_pt.x + _gdk_offset_x;
++            *win_x = (screen_pt.x / scale) + _gdk_offset_x;
+           if (win_y)
+-            *win_y = screen_pt.y + _gdk_offset_y;
++            *win_y = (screen_pt.y / scale) + _gdk_offset_y;
+           return _gdk_root;
+         }
+ 
+@@ -2823,9 +2869,9 @@ _gdk_windowing_window_at_pointer (GdkDisplay *display,
+   if (window && (win_x || win_y))
+     {
+       if (win_x)
+-        *win_x = client_pt.x;
++        *win_x = client_pt.x / scale;
+       if (win_y)
+-        *win_y = client_pt.y;
++        *win_y = client_pt.y / scale;
+     }
+ 
+   GDK_NOTE (MISC, g_print ("_gdk_windowing_window_at_pointer: %+d%+d %p%s\n",
+@@ -3588,6 +3634,8 @@ gdk_window_fullscreen (GdkWindow *window)
+ 
+   g_return_if_fail (GDK_IS_WINDOW (window));
+ 
++  int scale = (int)gdk_window_get_scale_factor (window);
++
+   fi = g_new (FullscreenInfo, 1);
+ 
+   if (!GetWindowRect (GDK_WINDOW_HWND (window), &(fi->r)))
+@@ -3600,16 +3648,16 @@ gdk_window_fullscreen (GdkWindow *window)
+       mi.cbSize = sizeof (mi);
+       if (monitor && GetMonitorInfo (monitor, &mi))
+ 	{
+-	  x = mi.rcMonitor.left;
+-	  y = mi.rcMonitor.top;
+-	  width = mi.rcMonitor.right - x;
+-	  height = mi.rcMonitor.bottom - y;
++	  x = mi.rcMonitor.left * scale; // XXX - TODO: This probably shouldn't be scaled?
++	  y = mi.rcMonitor.top * scale;
++	  width = (mi.rcMonitor.right - x) * scale;
++	  height = (mi.rcMonitor.bottom - y) * scale;
+ 	}
+       else
+ 	{
+ 	  x = y = 0;
+-	  width = GetSystemMetrics (SM_CXSCREEN);
+-	  height = GetSystemMetrics (SM_CYSCREEN);
++	  width = GetSystemMetrics (SM_CXSCREEN) * scale;
++	  height = GetSystemMetrics (SM_CYSCREEN) * scale;
+ 	}
+ 
+       /* remember for restoring */
+@@ -3973,8 +4021,9 @@ _gdk_windowing_get_shape_for_mask (GdkBitmap *mask)
+ {
+   GdkRegion *region;
+   HRGN hrgn = _gdk_win32_bitmap_to_hrgn (mask);
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+-  region = _gdk_win32_hrgn_to_region (hrgn);
++  region = _gdk_win32_hrgn_to_region (hrgn, scale);
+   DeleteObject (hrgn);
+ 
+   return region;
+@@ -3990,10 +4039,11 @@ _gdk_windowing_window_get_shape (GdkWindow *window)
+ {
+   HRGN hrgn = CreateRectRgn (0, 0, 0, 0);
+   int  type = GetWindowRgn (GDK_WINDOW_HWND (window), hrgn);
++  int scale = (int)gdk_window_get_scale_factor (window);
+ 
+   if (type == SIMPLEREGION || type == COMPLEXREGION)
+     {
+-      GdkRegion *region = _gdk_win32_hrgn_to_region (hrgn);
++      GdkRegion *region = _gdk_win32_hrgn_to_region (hrgn, scale);
+ 
+       DeleteObject (hrgn);
+       return region;
+@@ -4045,6 +4095,7 @@ _gdk_win32_window_queue_translation (GdkWindow *window,
+ {
+   HRGN hrgn = CreateRectRgn (0, 0, 0, 0);
+   int ret = GetUpdateRgn (GDK_WINDOW_HWND (window), hrgn, FALSE);
++  int scale = (int)gdk_window_get_scale_factor (window);
+   if (ret == ERROR)
+     WIN32_API_FAILED ("GetUpdateRgn");
+   else if (ret != NULLREGION)
+@@ -4056,7 +4107,7 @@ _gdk_win32_window_queue_translation (GdkWindow *window,
+         WIN32_API_FAILED ("CombineRgn");
+       else if (ret != NULLREGION)
+ 	{
+-	  OffsetRgn (update, dx, dy);
++	  OffsetRgn (update, dx * scale, dy * scale);
+           API_CALL (InvalidateRgn, (GDK_WINDOW_HWND (window), update, TRUE));
+ 	}
+       DeleteObject (update);
+@@ -4096,18 +4147,26 @@ _gdk_windowing_after_process_all_updates (void)
+ static gdouble
+ gdk_win32_window_get_scale_factor (GdkWindow *window)
+ {
++  const char *scale_str;
++
+   if (GDK_WINDOW_DESTROYED (window))
+-    return 1.0;
++    return 1;
++
++  scale_str = g_getenv ("GDK_SCALE");
++  if (scale_str)
++    {
++      return atol(scale_str);
++    }
+ 
+   if (p_GetDpiForMonitor != NULL)
+     {
+       guint dpi_x, dpi_y;
+       HMONITOR hmonitor = MonitorFromWindow (GDK_WINDOW_HWND (window), MONITOR_DEFAULTTONEAREST);
+       p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+-      return ((gdouble)dpi_x) / 96.0f;
++      return (int)(dpi_x / 96.0f);
+     }
+ 
+-  return 1.0;
++  return 1;
+ }
+ 
+ 
+diff --git a/gtk/gtkiconfactory.c b/gtk/gtkiconfactory.c
+index e081183..cfb5050 100644
+--- a/gtk/gtkiconfactory.c
++++ b/gtk/gtkiconfactory.c
+@@ -846,13 +846,18 @@ icon_size_lookup_intern (GtkSettings *settings,
+   if (widthp)
+     {
+       *widthp = width_for_settings >= 0 ? width_for_settings : icon_sizes[size].width;
++
++#ifndef G_OS_WIN32
+       (*widthp) *= scale;
++#endif
+     }
+ 
+   if (heightp)
+     {
+       *heightp = height_for_settings >= 0 ? height_for_settings : icon_sizes[size].height;
++#ifndef G_OS_WIN32
+       (*heightp) *= scale;
++#endif
+     }
+ 
+   return TRUE;
+diff --git a/gtk/gtkimage.c b/gtk/gtkimage.c
+index 9083577..b587a6d 100644
+--- a/gtk/gtkimage.c
++++ b/gtk/gtkimage.c
+@@ -2370,6 +2370,7 @@ gtk_image_calc_size (GtkImage *image)
+     {
+       widget->requisition.width = (gdk_pixbuf_get_width (pixbuf) / render_scale) + GTK_MISC (image)->xpad * 2;
+       widget->requisition.height = (gdk_pixbuf_get_height (pixbuf) / render_scale) + GTK_MISC (image)->ypad * 2;
++	  g_print("requisition %d %d\n", widget->requisition.width, widget->requisition.height);
+       g_object_unref (pixbuf);
+     }
+ }
+diff --git a/modules/engines/ms-windows/msw_style.c b/modules/engines/ms-windows/msw_style.c
+index a1e43d5..681cff3 100644
+--- a/modules/engines/ms-windows/msw_style.c
++++ b/modules/engines/ms-windows/msw_style.c
+@@ -524,6 +524,7 @@ setup_msw_rc_style (void)
+ {
+   char buf[1024], font_buf[256], *font_ptr;
+   char menu_bar_prelight_str[128];
++  int scale = (int)gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   GdkColor menu_color;
+   GdkColor menu_text_color;
+@@ -710,8 +711,9 @@ setup_msw_rc_style (void)
+ 	      "GtkScrollbar::min-slider-length = 8\n"
+ 	      "}widget_class \"*VScrollbar*\" style \"msw-vscrollbar\"\n"
+ 	      "widget_class \"*VScale*\" style \"msw-vscrollbar\"\n",
+-	      GetSystemMetrics (SM_CYVTHUMB),
+-	      get_system_metric (XP_THEME_CLASS_SCROLLBAR, SM_CXVSCROLL), 11);
++	      GetSystemMetrics (SM_CYVTHUMB) / scale,
++	      get_system_metric (XP_THEME_CLASS_SCROLLBAR, SM_CXVSCROLL) / scale,
++		  11);
+   gtk_rc_parse_string (buf);
+ 
+   g_snprintf (buf, sizeof (buf),
+@@ -724,8 +726,9 @@ setup_msw_rc_style (void)
+ 	      "GtkScrollbar::min-slider-length = 8\n"
+ 	      "}widget_class \"*HScrollbar*\" style \"msw-hscrollbar\"\n"
+ 	      "widget_class \"*HScale*\" style \"msw-hscrollbar\"\n",
+-	      GetSystemMetrics (SM_CXHTHUMB),
+-	      get_system_metric (XP_THEME_CLASS_SCROLLBAR, SM_CYHSCROLL), 11);
++	      GetSystemMetrics (SM_CXHTHUMB) / scale,
++	      get_system_metric (XP_THEME_CLASS_SCROLLBAR, SM_CYHSCROLL) / scale,
++		  11);
+   gtk_rc_parse_string (buf);
+ 
+   gtk_rc_parse_string ("style \"msw-scrolled-window\" = \"msw-default\"\n"
+@@ -764,8 +767,8 @@ setup_msw_rc_style (void)
+ 	      "ythickness = %d\n"
+ 	      "}\n"
+ 	      "class \"GtkComboBox\" style \"msw-combobox\"\n",
+-        xp_theme_is_active()? 1 : GetSystemMetrics (SM_CXEDGE),
+-        xp_theme_is_active()? 1 : GetSystemMetrics (SM_CYEDGE));
++        xp_theme_is_active()? 1 : GetSystemMetrics (SM_CXEDGE) / scale,
++        xp_theme_is_active()? 1 : GetSystemMetrics (SM_CYEDGE) / scale);
+   gtk_rc_parse_string (buf);
+ 
+   /* size of tree view header */
+@@ -1045,6 +1048,7 @@ draw_expander (GtkStyle        *style,
+                GtkExpanderStyle expander_style)
+ {
+   cairo_t *cr = gdk_cairo_create (window);
++  int scale = 1; // gdk_window_get_scale_factor(window);
+ 
+   gint expander_size;
+   gint expander_semi_size;
+@@ -1112,28 +1116,28 @@ draw_expander (GtkStyle        *style,
+       HGDIOBJ old_pen;
+       XpDCInfo dc_info;
+ 
+-      dc = get_window_dc (style, window, state, &dc_info, x, y, expander_size,
+-			  expander_size, &rect);
++      dc = get_window_dc (style, window, state, &dc_info, x * scale, y * scale, expander_size * scale,
++			  expander_size * scale, &rect);
+       FrameRect (dc, &rect, GetSysColorBrush (COLOR_GRAYTEXT));
+-      InflateRect (&rect, -1, -1);
++      InflateRect (&rect, -1 * scale, -1 * scale);
+       FillRect (dc, &rect,
+ 		GetSysColorBrush (state ==
+ 				  GTK_STATE_INSENSITIVE ? COLOR_BTNFACE :
+ 				  COLOR_WINDOW));
+ 
+-      InflateRect (&rect, -1, -1);
++      InflateRect (&rect, -1 * scale, -1 * scale);
+ 
+-      pen = CreatePen (PS_SOLID, 1, GetSysColor (COLOR_WINDOWTEXT));
++      pen = CreatePen (PS_SOLID, 1 * scale, GetSysColor (COLOR_WINDOWTEXT));
+       old_pen = SelectObject (dc, pen);
+ 
+-      MoveToEx (dc, rect.left, rect.top - 2 + expander_semi_size, NULL);
+-      LineTo (dc, rect.right, rect.top - 2 + expander_semi_size);
++      MoveToEx (dc, rect.left, rect.top - (2 + expander_semi_size) * scale, NULL);
++      LineTo (dc, rect.right, rect.top - (2 + expander_semi_size) * scale);
+ 
+       if (expander_style == GTK_EXPANDER_COLLAPSED ||
+ 	  expander_style == GTK_EXPANDER_SEMI_COLLAPSED)
+ 	{
+-	  MoveToEx (dc, rect.left - 2 + expander_semi_size, rect.top, NULL);
+-	  LineTo (dc, rect.left - 2 + expander_semi_size, rect.bottom);
++	  MoveToEx (dc, rect.left - (2 + expander_semi_size) * scale, rect.top, NULL);
++	  LineTo (dc, rect.left - (2 + expander_semi_size) * scale, rect.bottom);
+ 	}
+ 
+       SelectObject (dc, old_pen);
+diff --git a/modules/engines/ms-windows/xp_theme.c b/modules/engines/ms-windows/xp_theme.c
+index 3d07891..55c3817 100644
+--- a/modules/engines/ms-windows/xp_theme.c
++++ b/modules/engines/ms-windows/xp_theme.c
+@@ -903,7 +903,8 @@ get_window_dc (GtkStyle *style,
+   GdkDrawable *drawable = NULL;
+   GdkGC *gc = style->dark_gc[state_type];
+   gint x_offset, y_offset;
+-  
++  int scale = gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++
+   dc_info_out->data = NULL;
+   
+   drawable = gdk_win32_begin_direct_draw_libgtk_only (window,
+@@ -912,10 +913,10 @@ get_window_dc (GtkStyle *style,
+   if (!drawable)
+     return NULL;
+ 
+-  rect_out->left = x - x_offset;
+-  rect_out->top = y - y_offset;
+-  rect_out->right = rect_out->left + width;
+-  rect_out->bottom = rect_out->top + height;
++  rect_out->left = (x - x_offset) * scale;
++  rect_out->top = (y - y_offset) * scale;
++  rect_out->right = rect_out->left + width * scale;
++  rect_out->bottom = rect_out->top + height * scale;
+   
+   dc_info_out->drawable = drawable;
+   dc_info_out->gc = gc;
+@@ -944,6 +945,7 @@ xp_theme_draw (GdkWindow *win, XpThemeElement element, GtkStyle *style,
+   XpDCInfo dc_info;
+   int part_state;
+   HWND hwnd;
++  int scale = gdk_screen_get_monitor_scale_factor (gdk_screen_get_default (), 0);
+ 
+   if (!xp_theme_is_drawable (element))
+     return FALSE;
+@@ -965,10 +967,10 @@ xp_theme_draw (GdkWindow *win, XpThemeElement element, GtkStyle *style,
+ 
+   if (area)
+     {
+-      clip.left = area->x - dc_info.x_offset;
+-      clip.top = area->y - dc_info.y_offset;
+-      clip.right = clip.left + area->width;
+-      clip.bottom = clip.top + area->height;
++      clip.left = (area->x - dc_info.x_offset) * scale;
++      clip.top = (area->y - dc_info.y_offset) * scale;
++      clip.right = (clip.left + area->width) * scale;
++      clip.bottom = (clip.top + area->height) * scale;
+ 
+       pClip = &clip;
+     }

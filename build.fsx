@@ -250,15 +250,15 @@ Target "glib" <| fun _ ->
   install "glib-rel" |> ignore
 
 Target "harfbuzz" <| fun _ ->
-  "http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-0.9.37.tar.bz2"
+  "http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-1.1.3.tar.bz2"
   |> download
   |> extract
 
-  CopyDir (Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
+  CopyDir (Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32")) (Path.Combine("slns", "harfbuzz", "win32")) (fun _ -> true)
   [Path.Combine("slns", "harfbuzz", "src", "hb-gobject-enums.h"); Path.Combine("slns", "harfbuzz", "src", "rllist.txt")]
-  |> CopyFiles (Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"))
+  |> CopyFiles (Path.Combine(buildDir(), "harfbuzz-1.1.3", "src"))
 
-  Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "harfbuzz.sln")
+  Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32", "harfbuzz.sln")
   |> MSBuildHelper.build (fun parameters ->
     { parameters with Targets = ["Build"]
                       Properties = [ "Platform", "Win32"
@@ -267,13 +267,13 @@ Target "harfbuzz" <| fun _ ->
     }
   ) |> ignore
 
-  let releaseDir = Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "Release")
+  let releaseDir = Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32", "libs", "Release")
   [Path.Combine(releaseDir, "libharfbuzz-0.dll"); Path.Combine(releaseDir, "harfbuzz.pdb")]
   |> CopyFiles (Path.Combine(installDir(), "bin"))
 
-  CopyFiles (Path.Combine(installDir(), "include")) (Directory.GetFiles(Path.Combine(buildDir(), "harfbuzz-0.9.37", "src"), "*.h"))
+  CopyFiles (Path.Combine(installDir(), "include")) (Directory.GetFiles(Path.Combine(buildDir(), "harfbuzz-1.1.3", "src"), "*.h"))
 
-  Path.Combine(buildDir(), "harfbuzz-0.9.37", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
+  Path.Combine(buildDir(), "harfbuzz-1.1.3", "win32", "libs", "harfbuzz", "Release", "harfbuzz.lib")
   |> CopyFile (Path.Combine(installDir(), "lib"))
 
 Target "atk" <| fun _ ->
@@ -392,8 +392,7 @@ Target "cairo" <| fun _ ->
 
   Path.Combine(buildDir(), "cairo-1.14.6")
   |> from (fun () ->
-    //patch "cairo\\cairo-array-vs-struct-initializer.patch"
-    printf "No patches to apply"
+    printfn "No Cairo patches"
   )
 
   let slnDir = Path.Combine(buildDir(), "cairo-1.14.6", "msvc")
@@ -417,6 +416,9 @@ Target "pango" <| fun _ ->
   Path.Combine(buildDir(), "pango-1.36.8")
   |> from (fun () ->
     patch "pango\\pango-synthesize-fonts-properly.patch"
+    patch "pango\\pango_win32_device_scale.patch"
+    patch "pango\\absolute_size.patch"
+    patch "pango\\win32_markup_font_size.patch"
   ) |> ignore
 
   let slnDir = Path.Combine(buildDir(), "pango-1.36.8", "build", "win32", "vs12")
@@ -433,11 +435,11 @@ Target "pango" <| fun _ ->
   install "pango-1.36.8-rel" |> ignore
 
 Target "gtk" <| fun _ ->
-  "http://ftp.gnome.org/pub/gnome/sources/gtk+/2.24/gtk+-2.24.28.tar.xz"
+  "http://ftp.gnome.org/pub/gnome/sources/gtk+/2.24/gtk+-2.24.27.tar.xz"
   |> download
   |> extract
 
-  Path.Combine(buildDir(), "gtk+-2.24.28")
+  Path.Combine(buildDir(), "gtk+-2.24.27")
   |> from (fun () ->
     patch "gtk\\0001-aborted-drag-should-leave.patch"
     patch "gtk\\0002-fix-dnd-in-autohide-pads.patch"
@@ -449,7 +451,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0008-remove-window-pos-changing-stacking.patch"
     patch "gtk\\0009-dont-override-icon-size-in-mswindows-theme.patch"
     patch "gtk\\0010-treeview-combobox-dont-appear-as-list.patch"
-    patch "gtk\\0011-retina-icons-2.patch"
+    patch "gtk\\0011-retina-icons.patch"
     patch "gtk\\0012-win32-scale-factor.patch"
     patch "gtk\\0013-win32-dpi-awareness.patch"
     patch "gtk\\0014-fix-win32-exports.patch"
@@ -462,9 +464,13 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0021-register-classw.patch"
     patch "gtk\\0022-include-math-h.patch"
     patch "gtk\\0022-gtk-draw-child-bg-2.patch"
+    patch "gtk\\0023-gtk-highdpi-8.patch"
+    patch "gtk\\0024-fix-root-coords.patch"
+    patch "gtk\\0025-scale-cursors.patch"
+    patch "gtk\\0026-treeview-queue-draw-prelight-arrow.patch"
   )
 
-  let slnDir = Path.Combine(buildDir(), "gtk+-2.24.28", "build", "win32", "vs12")
+  let slnDir = Path.Combine(buildDir(), "gtk+-2.24.27", "build", "win32", "vs12")
   Directory.GetFiles(Path.Combine("slns", "gtk", "build", "win32", "vs12"), "*.*")
   |> CopyFiles slnDir
 
@@ -476,7 +482,7 @@ Target "gtk" <| fun _ ->
     }
   )
 
-  install "gtk-rel" |> ignore
+  install "gtk-2.24.25-rel" |> ignore
 
 Target "xamarin-gtk-theme" <| fun _ ->
   

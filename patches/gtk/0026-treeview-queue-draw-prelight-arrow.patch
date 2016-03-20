@@ -1,0 +1,58 @@
+Author: Vsevolod Kukol <sevo@sevo.org>
+Date:   Fri Mar 18 11:38:04 2016 +0100
+
+    [hdpi] Redraw prelight arrow on expose
+	
+	Fixes prelight arrow misalignment due to wrong
+	Gdk window coordinates inside mouse events
+
+diff --git a/gtk/gtktreeview.c b/gtk/gtktreeview.c
+index f63419f..5801f79 100644
+--- a/gtk/gtktreeview.c
++++ b/gtk/gtktreeview.c
+@@ -2607,11 +2607,10 @@ gtk_tree_view_button_press (GtkWidget      *widget,
+ 	      gtk_grab_add (widget);
+ 	      tree_view->priv->button_pressed_node = tree_view->priv->prelight_node;
+ 	      tree_view->priv->button_pressed_tree = tree_view->priv->prelight_tree;
+-	      gtk_tree_view_draw_arrow (GTK_TREE_VIEW (widget),
++	      gtk_tree_view_queue_draw_arrow (GTK_TREE_VIEW (widget),
+ 					tree_view->priv->prelight_tree,
+ 					tree_view->priv->prelight_node,
+-					event->x,
+-					event->y);
++					NULL);
+ 	    }
+ 
+ 	  grab_focus_and_unset_draw_keyfocus (tree_view);
+@@ -3217,7 +3216,7 @@ do_prelight (GtkTreeView *tree_view,
+ 		GTK_TREE_VIEW_UNSET_FLAG (tree_view,
+ 					  GTK_TREE_VIEW_ARROW_PRELIT);
+ 
+-	      gtk_tree_view_draw_arrow (tree_view, tree, node, x, y);
++	      gtk_tree_view_queue_draw_arrow(tree_view, tree, node, NULL);
+ 	    }
+ 	}
+ 
+@@ -3236,11 +3235,10 @@ do_prelight (GtkTreeView *tree_view,
+ 	{
+ 	  GTK_TREE_VIEW_UNSET_FLAG (tree_view, GTK_TREE_VIEW_ARROW_PRELIT);
+ 	  
+-	  gtk_tree_view_draw_arrow (tree_view,
++	  gtk_tree_view_queue_draw_arrow (tree_view,
+ 				    tree_view->priv->prelight_tree,
+ 				    tree_view->priv->prelight_node,
+-				    x,
+-				    y);
++				    NULL);
+ 	}
+ 
+       _gtk_tree_view_queue_draw_node (tree_view,
+@@ -3267,7 +3265,7 @@ do_prelight (GtkTreeView *tree_view,
+     {
+       GTK_TREE_VIEW_SET_FLAG (tree_view, GTK_TREE_VIEW_ARROW_PRELIT);
+ 
+-      gtk_tree_view_draw_arrow (tree_view, tree, node, x, y);
++      gtk_tree_view_queue_draw_arrow(tree_view, tree, node, NULL);
+     }
+ 
+   GTK_RBNODE_SET_FLAG (node, GTK_RBNODE_IS_PRELIT);

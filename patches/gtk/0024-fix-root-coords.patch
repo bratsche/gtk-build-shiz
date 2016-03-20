@@ -1,0 +1,15 @@
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index d6c2db4..4f2d9ee 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -2562,8 +2562,8 @@ gdk_win32_window_get_root_coords (GdkWindow *window,
+   gint ty;
+   POINT pt;
+ 
+-  pt.x = x;
+-  pt.y = y;
++  pt.x = x * scale;
++  pt.y = y * scale;
+   ClientToScreen (GDK_WINDOW_HWND (window), &pt);
+   tx = pt.x / scale;
+   ty = pt.y / scale;

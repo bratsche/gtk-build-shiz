@@ -1,0 +1,16 @@
+diff --git a/pango/fonts.c b/pango/fonts.c
+index d92a903..a40ba32 100644
+--- a/pango/fonts.c
++++ b/pango/fonts.c
+@@ -400,6 +400,11 @@ pango_font_description_set_absolute_size (PangoFontDescription *desc,
+   g_return_if_fail (desc != NULL);
+   g_return_if_fail (size >= 0);
+ 
++#ifdef G_OS_WIN32
++  double scale = xam_pango_get_device_scale ();
++  size *= scale;
++#endif
++
+   desc->size = size;
+   desc->size_is_absolute = TRUE;
+   desc->mask |= PANGO_FONT_MASK_SIZE;
