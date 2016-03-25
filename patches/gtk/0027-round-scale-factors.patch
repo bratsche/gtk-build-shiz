@@ -1,0 +1,40 @@
+commit e956fc935962c9b5daa3d0baebaa81e78879ff06
+Author: Cody Russell <cody@jhu.edu>
+Date:   Fri Mar 25 10:37:00 2016 -0500
+
+    Round scale factors.
+
+diff --git a/gdk/win32/gdkdisplay-win32.c b/gdk/win32/gdkdisplay-win32.c
+index 223e675..33c570f 100644
+--- a/gdk/win32/gdkdisplay-win32.c
++++ b/gdk/win32/gdkdisplay-win32.c
+@@ -21,6 +21,7 @@
+ #include "config.h"
+ #include "gdk.h"
+ #include "gdkprivate-win32.h"
++#include <math.h>
+ 
+ #define HAVE_MONITOR_INFO
+ 
+@@ -124,7 +125,7 @@ enum_monitor (HMONITOR hmonitor,
+     {
+       guint dpi_x, dpi_y;
+       p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+-      monitor->scale_factor = ((gdouble)dpi_x) / 96.0f;
++      monitor->scale_factor = round(((gdouble)dpi_x) / 96.0f);
+     }
+   else
+     {
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index 4f2d9ee..a5187e2 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -4163,7 +4163,7 @@ gdk_win32_window_get_scale_factor (GdkWindow *window)
+       guint dpi_x, dpi_y;
+       HMONITOR hmonitor = MonitorFromWindow (GDK_WINDOW_HWND (window), MONITOR_DEFAULTTONEAREST);
+       p_GetDpiForMonitor (hmonitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+-      return (int)(dpi_x / 96.0f);
++      return (int)round((dpi_x / 96.0f));
+     }
+ 
+   return 1;

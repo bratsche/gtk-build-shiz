@@ -468,6 +468,7 @@ Target "gtk" <| fun _ ->
     patch "gtk\\0024-fix-root-coords.patch"
     patch "gtk\\0025-scale-cursors.patch"
     patch "gtk\\0026-treeview-queue-draw-prelight-arrow.patch"
+    patch "gtk\\0027-round-scale-factors.patch"
   )
 
   let slnDir = Path.Combine(buildDir(), "gtk+-2.24.27", "build", "win32", "vs12")
