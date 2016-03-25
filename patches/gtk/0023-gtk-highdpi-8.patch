@@ -1709,7 +1709,7 @@ index 9083577..b587a6d 100644
      {
        widget->requisition.width = (gdk_pixbuf_get_width (pixbuf) / render_scale) + GTK_MISC (image)->xpad * 2;
        widget->requisition.height = (gdk_pixbuf_get_height (pixbuf) / render_scale) + GTK_MISC (image)->ypad * 2;
-+	  g_print("requisition %d %d\n", widget->requisition.width, widget->requisition.height);
++	  //g_print("requisition %d %d\n", widget->requisition.width, widget->requisition.height);
        g_object_unref (pixbuf);
      }
  }
