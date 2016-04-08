@@ -1,0 +1,19 @@
+commit 316a349d8e2b54123802a169de15658be7e574c5
+Author: Cody Russell <cody@jhu.edu>
+Date:   Fri Apr 8 14:05:19 2016 -0500
+
+    [hdpi] Fix scale in gdk_window_win32_get_pointer()
+
+diff --git a/gdk/win32/gdkwindow-win32.c b/gdk/win32/gdkwindow-win32.c
+index a5187e2..bdb0e7a 100644
+--- a/gdk/win32/gdkwindow-win32.c
++++ b/gdk/win32/gdkwindow-win32.c
+@@ -2724,7 +2724,7 @@ gdk_window_win32_get_pointer (GdkWindow       *window,
+ 
+   g_return_val_if_fail (window == NULL || GDK_IS_WINDOW (window), FALSE);
+   
+-  int scale = (int)gdk_window_get_scale_factor (window);
++  int scale = (int)gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
+ 
+   return_val = TRUE;
+ 
