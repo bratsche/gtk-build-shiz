@@ -1,0 +1,47 @@
+commit 7a982ca7ddb8e3c7b06a66cbf592c639d8b7da6d
+Author: Cody Russell <cody@jhu.edu>
+Date:   Fri Apr 8 10:40:30 2016 -0500
+
+    [hdpi] Fix cursor size computation. This fixes tooltip offsets.
+
+diff --git a/gdk/win32/gdkcursor-win32.c b/gdk/win32/gdkcursor-win32.c
+index ff2e334..157326d 100644
+--- a/gdk/win32/gdkcursor-win32.c
++++ b/gdk/win32/gdkcursor-win32.c
+@@ -67,7 +67,7 @@ hcursor_from_type (GdkCursorType cursor_type)
+   HCURSOR rv;
+   gint w, h;
+   guchar *and_plane, *xor_plane;
+-  int scale = 2;
++  int scale = (int)gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
+ 
+   if (cursor_type != GDK_BLANK_CURSOR)
+     {
+@@ -655,8 +655,9 @@ guint
+ gdk_display_get_default_cursor_size (GdkDisplay    *display)
+ {
+   g_return_val_if_fail (display == _gdk_display, 0);
+-  
+-  return MIN (GetSystemMetrics (SM_CXCURSOR) * 2, GetSystemMetrics (SM_CYCURSOR) * 2);
++  int scale = (int)gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++
++  return MIN (GetSystemMetrics (SM_CXCURSOR) / scale, GetSystemMetrics (SM_CYCURSOR) / scale);
+ }
+ 
+ void     
+@@ -665,11 +666,12 @@ gdk_display_get_maximal_cursor_size (GdkDisplay *display,
+ 				     guint       *height)
+ {
+   g_return_if_fail (display == _gdk_display);
+-  
++  int scale = (int)gdk_screen_get_monitor_scale_factor(gdk_screen_get_default(), 0);
++
+   if (width)
+-    *width = GetSystemMetrics (SM_CXCURSOR) * 2;
++    *width = GetSystemMetrics (SM_CXCURSOR) / scale;
+   if (height)
+-    *height = GetSystemMetrics (SM_CYCURSOR) * 2;
++    *height = GetSystemMetrics (SM_CYCURSOR) / scale;
+ }
+ 
+ 
